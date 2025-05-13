@@ -25,10 +25,10 @@ jobs:
         run: npm run build
 
       - name: Install Serverless Framework
-        run: npm install -g serverless@4.14.3   # ✅ Global install
+        run: npm install -g serverless@3
 
       - name: Deploy frontend via Serverless
-        working-directory: frontend             # ✅ Serverless YAML is here
+        working-directory: frontend             
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
