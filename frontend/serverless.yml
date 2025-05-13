@@ -1,6 +1,6 @@
 service: healthbot-frontend
 
-frameworkVersion: '^3.0.0'
+frameworkVersion: '~4.14.3'
 
 provider:
   name: aws
