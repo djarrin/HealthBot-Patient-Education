@@ -27,6 +27,10 @@ jobs:
       - name: Install Serverless Framework
         run: npm install -g serverless@3
 
+      - name: Install serverless-s3-sync plugin
+        run: serverless plugin install -n serverless-s3-sync
+        working-directory: frontend
+
       - name: Deploy frontend via Serverless
         working-directory: frontend             
         env:
