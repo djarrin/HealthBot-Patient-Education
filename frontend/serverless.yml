@@ -12,7 +12,7 @@ plugins:
 custom:
   s3Sync:
     - bucketName: healthbot-frontend-dev
-      localDir: frontend/build
+      localDir: build
 
 resources:
   Resources:
