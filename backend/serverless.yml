@@ -1,0 +1,66 @@
+service: healthbot-backend
+
+frameworkVersion: '^3.38.0'
+
+provider:
+  name: aws
+  region: us-east-1
+  runtime: python3.11
+  stage: dev
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: healthbot-user-pool
+        AutoVerifiedAttributes:
+          - email
+        UsernameAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: true
+            RequireLowercase: true
+            RequireNumbers: true
+            RequireSymbols: false
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: false
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: healthbot-web-client
+        GenerateSecret: false
+        UserPoolId:
+          Ref: CognitoUserPool
+        AllowedOAuthFlows:
+          - code
+        AllowedOAuthScopes:
+          - email
+          - openid
+        AllowedOAuthFlowsUserPoolClient: true
+        CallbackURLs:
+          - http://localhost:3000
+        LogoutURLs:
+          - http://localhost:3000
+        SupportedIdentityProviders:
+          - COGNITO
+
+  Outputs:
+    CognitoUserPoolId:
+      Description: Cognito User Pool ID
+      Value:
+        Ref: CognitoUserPool
+      Export:
+        Name: HealthBotUserPoolId
+
+    CognitoUserPoolClientId:
+      Description: Cognito User Pool App Client ID
+      Value:
+        Ref: CognitoUserPoolClient
+      Export:
+        Name: HealthBotUserPoolClientId
