@@ -1,23 +1,17 @@
-import logo from './logo.svg';
 import './App.css';
+import './aws-config';
+import AuthForm from './AuthForm';
+
+console.log('Amplify configured with:', {
+  region: process.env.REACT_APP_COGNITO_REGION,
+  userPoolId: process.env.REACT_APP_COGNITO_USER_POOL_ID,
+  clientId: process.env.REACT_APP_COGNITO_CLIENT_ID,
+});
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <AuthForm />
     </div>
   );
 }
