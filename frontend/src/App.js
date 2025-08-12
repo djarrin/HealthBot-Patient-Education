@@ -1,6 +1,6 @@
 import './App.css';
 import './aws-config';
-import AuthForm from './AuthForm';
+import AuthForm from './components/auth/AuthForm';
 
 console.log('Amplify configured with:', {
   region: process.env.REACT_APP_COGNITO_REGION,
