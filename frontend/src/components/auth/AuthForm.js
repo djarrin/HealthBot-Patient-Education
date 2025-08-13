@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { STEP_TITLES } from './authConstants';
 import { useAuth } from './useAuth';
 import { AuthMessage } from './AuthMessage';
@@ -6,6 +7,7 @@ import { AuthNavigation } from './AuthNavigation';
 import '../../assets/login-flow.css';
 
 export default function AuthForm() {
+  const navigate = useNavigate();
   const {
     email,
     setEmail,
@@ -26,6 +28,15 @@ export default function AuthForm() {
     handleConfirmResetPassword,
   } = useAuth();
 
+  const handleSigninWithNavigation = async () => {
+    const result = await handleSignin();
+    if (result.success) {
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1000);
+    }
+  };
+
   return (
     <div className="auth-container">
       <div className="auth-form-card">
@@ -44,7 +55,7 @@ export default function AuthForm() {
           code={code}
           setCode={setCode}
           handleSignup={handleSignup}
-          handleSignin={handleSignin}
+          handleSignin={handleSigninWithNavigation}
           handleVerify={handleVerify}
           handleForgotPassword={handleForgotPassword}
           handleConfirmResetPassword={handleConfirmResetPassword}

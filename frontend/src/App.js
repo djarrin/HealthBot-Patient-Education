@@ -1,6 +1,9 @@
 import './App.css';
 import './aws-config';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AuthForm from './components/auth/AuthForm';
+import HealthBotChat from './components/HealthBotChat';
+import ProtectedRoute from './components/ProtectedRoute';
 
 console.log('Amplify configured with:', {
   region: process.env.REACT_APP_COGNITO_REGION,
@@ -10,9 +13,22 @@ console.log('Amplify configured with:', {
 
 function App() {
   return (
-    <div className="App">
-      <AuthForm />
-    </div>
+    <BrowserRouter>
+      <div className="App">
+        <Routes>
+          <Route path="/auth" element={<AuthForm />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <HealthBotChat />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/" element={<Navigate to="/auth" replace />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }
 
