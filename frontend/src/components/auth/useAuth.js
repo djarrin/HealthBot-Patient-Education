@@ -50,9 +50,11 @@ export const useAuth = () => {
       const user = await signIn({ username: email, password });
       showMessage('Login successful!', MESSAGE_TYPES.SUCCESS);
       console.log('Signed in user:', user);
+      return { success: true, user };
     } catch (err) {
       console.error('Signin error', err);
       showMessage(err.message, MESSAGE_TYPES.ERROR);
+      return { success: false, error: err };
     }
   };
 
