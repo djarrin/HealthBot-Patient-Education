@@ -274,39 +274,44 @@ export default function HealthBotChat() {
               </div>
             </div>
           )}
+          {showQuiz && quizQuestion && (
+            <div className="message bot">
+              <div className="message-content">
+                <div className="bot-avatar">🤖</div>
+                <div className="message-text">
+                  <h3>📝 Comprehension Check</h3>
+                  <p>{quizQuestion.question}</p>
+                  <div className="quiz-options">
+                    {quizQuestion.options.map((option, index) => (
+                      <label key={index} className="quiz-option">
+                        <input
+                          type="radio"
+                          name="quiz-answer"
+                          value={option}
+                          checked={quizAnswer === option}
+                          onChange={(e) => setQuizAnswer(e.target.value)}
+                        />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={handleQuizSubmit}
+                    disabled={!quizAnswer}
+                    className="quiz-submit-button"
+                  >
+                    Submit Answer
+                  </button>
+                </div>
+              </div>
+              <div className="message-timestamp">
+                {new Date().toLocaleTimeString()}
+              </div>
+            </div>
+          )}
           
           <div ref={messagesEndRef} />
         </div>
-
-        {showQuiz && quizQuestion && (
-          <div className="quiz-container">
-            <div className="quiz-question">
-              <h3>📝 Comprehension Check</h3>
-              <p>{quizQuestion.question}</p>
-              <div className="quiz-options">
-                {quizQuestion.options.map((option, index) => (
-                  <label key={index} className="quiz-option">
-                    <input
-                      type="radio"
-                      name="quiz-answer"
-                      value={option}
-                      checked={quizAnswer === option}
-                      onChange={(e) => setQuizAnswer(e.target.value)}
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </div>
-              <button 
-                onClick={handleQuizSubmit}
-                disabled={!quizAnswer}
-                className="quiz-submit-button"
-              >
-                Submit Answer
-              </button>
-            </div>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="input-container">
           <input
