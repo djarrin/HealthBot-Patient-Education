@@ -18,6 +18,23 @@ export const AuthFormSteps = ({
   handleForgotPassword,
   handleConfirmResetPassword
 }) => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    switch (step) {
+      case AUTH_STEPS.SIGNUP:
+        return handleSignup();
+      case AUTH_STEPS.SIGNIN:
+        return handleSignin();
+      case AUTH_STEPS.VERIFY:
+        return handleVerify();
+      case AUTH_STEPS.FORGOT_PASSWORD:
+        return handleForgotPassword();
+      case AUTH_STEPS.RESET_PASSWORD:
+        return handleConfirmResetPassword();
+      default:
+        return null;
+    }
+  };
   const renderSignupSigninInputs = () => (
     <>
       <AuthInput
@@ -32,6 +49,11 @@ export const AuthFormSteps = ({
         value={password}
         onChange={e => setPassword(e.target.value)}
       />
+      {step === AUTH_STEPS.SIGNUP && (
+        <div className="auth-password-hint">
+          Password must be at least 8 characters and include uppercase, lowercase, and a number.
+        </div>
+      )}
     </>
   );
 
@@ -89,24 +111,24 @@ export const AuthFormSteps = ({
   const renderButton = () => {
     switch (step) {
       case AUTH_STEPS.SIGNUP:
-        return <AuthButton onClick={handleSignup}>Create Account</AuthButton>;
+        return <AuthButton type="submit">Create Account</AuthButton>;
       case AUTH_STEPS.SIGNIN:
-        return <AuthButton onClick={handleSignin}>Sign In</AuthButton>;
+        return <AuthButton type="submit">Sign In</AuthButton>;
       case AUTH_STEPS.VERIFY:
-        return <AuthButton onClick={handleVerify}>Verify Email</AuthButton>;
+        return <AuthButton type="submit">Verify Email</AuthButton>;
       case AUTH_STEPS.FORGOT_PASSWORD:
-        return <AuthButton onClick={handleForgotPassword}>Send Reset Code</AuthButton>;
+        return <AuthButton type="submit">Send Reset Code</AuthButton>;
       case AUTH_STEPS.RESET_PASSWORD:
-        return <AuthButton onClick={handleConfirmResetPassword}>Reset Password</AuthButton>;
+        return <AuthButton type="submit">Reset Password</AuthButton>;
       default:
         return null;
     }
   };
 
   return (
-    <>
+    <form onSubmit={handleSubmit}>
       {renderInputs()}
       {renderButton()}
-    </>
+    </form>
   );
 };
