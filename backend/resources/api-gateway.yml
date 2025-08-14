@@ -95,7 +95,7 @@ Outputs:
     Description: API Gateway URL
     Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/${self:provider.stage}"
     Export:
-      Name: ${self:service}-ApiGatewayUrl-${self:provider.stage}
+      Name: HealthBotApiBaseUrl
 
   ApiGatewayRestApiId:
     Description: API Gateway REST API ID

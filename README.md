@@ -56,7 +56,13 @@ You'll also need to create a custom managed policy for IAM role management. Name
 }
 ```
 
-### 3. Download the credentials and add to GitHub
+### 3. Deployment order
+
+- Deploy the backend first (run the "Deploy Backend" workflow or `serverless deploy` in `backend/`).
+- Then deploy the frontend (run the "Deploy Frontend" workflow or `serverless deploy` in `frontend/`).
+- Rationale: the frontend build reads CloudFormation exports (`HealthBotUserPoolId`, `HealthBotUserPoolClientId`, `HealthBotApiBaseUrl`) produced by the backend.
+
+### 4. Download the credentials and add to GitHub
 
 Paste them into GitHub Secrets under:
 

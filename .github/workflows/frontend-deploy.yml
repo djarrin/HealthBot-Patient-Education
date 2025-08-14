@@ -23,8 +23,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Fetch Cognito Outputs from CloudFormation
-        id: fetch-cognito
+      - name: Fetch Cognito and API outputs from CloudFormation
+        id: fetch-outputs
         run: |
           USER_POOL_ID=$(aws cloudformation list-exports \
             --query "Exports[?Name=='HealthBotUserPoolId'].Value" \
@@ -32,15 +32,20 @@ jobs:
           CLIENT_ID=$(aws cloudformation list-exports \
             --query "Exports[?Name=='HealthBotUserPoolClientId'].Value" \
             --output text)
+          API_BASE_URL=$(aws cloudformation list-exports \
+            --query "Exports[?Name=='HealthBotApiBaseUrl'].Value" \
+            --output text)
 
           echo "REACT_APP_COGNITO_USER_POOL_ID=$USER_POOL_ID" >> $GITHUB_ENV
           echo "REACT_APP_COGNITO_CLIENT_ID=$CLIENT_ID" >> $GITHUB_ENV
+          echo "REACT_APP_API_BASE_URL=$API_BASE_URL" >> $GITHUB_ENV
 
-      - name: Inject Cognito values into .env
+      - name: Inject env values into .env
         working-directory: frontend
         run: |
           echo "REACT_APP_COGNITO_USER_POOL_ID=${{ env.REACT_APP_COGNITO_USER_POOL_ID }}" >> .env
           echo "REACT_APP_COGNITO_CLIENT_ID=${{ env.REACT_APP_COGNITO_CLIENT_ID }}" >> .env
+          echo "REACT_APP_API_BASE_URL=${{ env.REACT_APP_API_BASE_URL }}" >> .env
 
       - name: Install frontend dependencies
         working-directory: frontend
