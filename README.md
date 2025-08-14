@@ -48,7 +48,9 @@ You'll also need to create a custom managed policy for IAM role management. Name
         "iam:DeleteRolePolicy",
         "iam:UpdateAssumeRolePolicy",
         "iam:GetRole",
-        "iam:PassRole"
+        "iam:PassRole",
+        "iam:TagRole",
+        "iam:UntagRole"
       ],
       "Resource": "*"
     }
