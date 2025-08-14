@@ -1,0 +1,105 @@
+Resources:
+  ChatSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ${self:service}-chat-sessions-${self:provider.stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: lastActivity
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserSessionsByLastActivity
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: lastActivity
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: ${self:provider.stage}
+        - Key: Service
+          Value: ${self:service}
+
+  UserMessagesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ${self:service}-user-messages-${self:provider.stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: messageId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: MessageIdIndex
+          KeySchema:
+            - AttributeName: messageId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: ${self:provider.stage}
+        - Key: Service
+          Value: ${self:service}
+
+  SessionStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ${self:service}-session-state-${self:provider.stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Environment
+          Value: ${self:provider.stage}
+        - Key: Service
+          Value: ${self:service}
+
+Outputs:
+  ChatSessionsTableName:
+    Description: Chat Sessions DynamoDB Table Name
+    Value: !Ref ChatSessionsTable
+    Export:
+      Name: ${self:service}-ChatSessionsTableName-${self:provider.stage}
+
+  UserMessagesTableName:
+    Description: User Messages DynamoDB Table Name
+    Value: !Ref UserMessagesTable
+    Export:
+      Name: ${self:service}-UserMessagesTableName-${self:provider.stage}
+
+  SessionStateTableName:
+    Description: Session State DynamoDB Table Name
+    Value: !Ref SessionStateTable
+    Export:
+      Name: ${self:service}-SessionStateTableName-${self:provider.stage}

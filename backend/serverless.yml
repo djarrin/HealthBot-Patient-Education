@@ -7,60 +7,53 @@ provider:
   region: us-east-1
   runtime: python3.11
   stage: dev
+  environment:
+    CHAT_SESSIONS_TABLE: ${self:service}-chat-sessions-${self:provider.stage}
+    USER_MESSAGES_TABLE: ${self:service}-user-messages-${self:provider.stage}
+    SESSION_STATE_TABLE: ${self:service}-session-state-${self:provider.stage}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - !GetAtt ChatSessionsTable.Arn
+            - !GetAtt UserMessagesTable.Arn
+            - !GetAtt SessionStateTable.Arn
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: "*"
+
+functions:
+  processUserMessage:
+    handler: src/handlers/process_user_message.handler
+    events:
+      - http:
+          path: /api/messages
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
 
 resources:
-  Resources:
-    CognitoUserPool:
-      Type: AWS::Cognito::UserPool
-      Properties:
-        UserPoolName: healthbot-user-pool
-        AutoVerifiedAttributes:
-          - email
-        UsernameAttributes:
-          - email
-        Policies:
-          PasswordPolicy:
-            MinimumLength: 8
-            RequireUppercase: true
-            RequireLowercase: true
-            RequireNumbers: true
-            RequireSymbols: false
-        Schema:
-          - Name: email
-            Required: true
-            Mutable: false
-
-    CognitoUserPoolClient:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        ClientName: healthbot-web-client
-        GenerateSecret: false
-        UserPoolId:
-          Ref: CognitoUserPool
-        AllowedOAuthFlows:
-          - code
-        AllowedOAuthScopes:
-          - email
-          - openid
-        AllowedOAuthFlowsUserPoolClient: true
-        CallbackURLs:
-          - http://localhost:3000
-        LogoutURLs:
-          - http://localhost:3000
-        SupportedIdentityProviders:
-          - COGNITO
-
-  Outputs:
-    CognitoUserPoolId:
-      Description: Cognito User Pool ID
-      Value:
-        Ref: CognitoUserPool
-      Export:
-        Name: HealthBotUserPoolId
-
-    CognitoUserPoolClientId:
-      Description: Cognito User Pool App Client ID
-      Value:
-        Ref: CognitoUserPoolClient
-      Export:
-        Name: HealthBotUserPoolClientId
+  - ${file(resources/dynamodb.yml)}
+  - ${file(resources/api-gateway.yml)}
+  - ${file(resources/cognito.yml)}

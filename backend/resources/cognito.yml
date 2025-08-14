@@ -1,0 +1,83 @@
+Resources:
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: ${self:service}-user-pool-${self:provider.stage}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: false
+      MfaConfiguration: "OFF"
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      Tags:
+        - Key: Environment
+          Value: ${self:provider.stage}
+        - Key: Service
+          Value: ${self:service}
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: ${self:service}-web-client-${self:provider.stage}
+      GenerateSecret: false
+      UserPoolId:
+        Ref: CognitoUserPool
+      AllowedOAuthFlows:
+        - code
+      AllowedOAuthScopes:
+        - email
+        - openid
+      AllowedOAuthFlowsUserPoolClient: true
+      CallbackURLs:
+        - http://localhost:3000
+        - https://healthbot-frontend-dev.s3-website-us-east-1.amazonaws.com
+      LogoutURLs:
+        - http://localhost:3000
+        - https://healthbot-frontend-dev.s3-website-us-east-1.amazonaws.com
+      SupportedIdentityProviders:
+        - COGNITO
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: ${self:service}-${self:provider.stage}
+      UserPoolId:
+        Ref: CognitoUserPool
+
+Outputs:
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value:
+      Ref: CognitoUserPool
+    Export:
+      Name: HealthBotUserPoolId
+
+  CognitoUserPoolClientId:
+    Description: Cognito User Pool App Client ID
+    Value:
+      Ref: CognitoUserPoolClient
+    Export:
+      Name: HealthBotUserPoolClientId
+
+  CognitoUserPoolArn:
+    Description: Cognito User Pool ARN
+    Value:
+      Fn::GetAtt: [CognitoUserPool, Arn]
+    Export:
+      Name: ${self:service}-CognitoUserPoolArn-${self:provider.stage}
