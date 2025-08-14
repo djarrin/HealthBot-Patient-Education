@@ -14,7 +14,24 @@ To securely deploy via GitHub Actions, you'll need an IAM user with appropriate 
 - Enable **Programmatic access**
 - Skip group assignment
 
-### 2. Attach this **inline policy**:
+### 2. Attach these AWS managed policies to the IAM user
+
+To avoid inline policy size limits and simplify management, attach these AWS managed policies to the `github-deploy-bot` user:
+
+#### Required AWS Managed Policies:
+
+- **AWSCloudFormationFullAccess** - For deploying CloudFormation stacks
+- **AmazonS3FullAccess** - For S3 bucket and website deployment
+- **AWSLambda_FullAccess** - For Lambda function deployment
+- **AmazonAPIGatewayAdministrator** - For API Gateway (REST and HTTP/WebSocket)
+- **AmazonDynamoDBFullAccess** - For DynamoDB table management
+- **SecretsManagerReadWrite** - For Secrets Manager operations
+- **CloudWatchLogsFullAccess** - For CloudWatch Logs management
+- **AmazonCognitoPowerUser** - For Cognito User Pool and Client management
+
+#### Additional IAM Permissions:
+
+You'll also need to create a custom managed policy for IAM role management. Name it `HealthBot-IAMRoleManagement`:
 
 ```json
 {
@@ -23,46 +40,15 @@ To securely deploy via GitHub Actions, you'll need an IAM user with appropriate 
     {
       "Effect": "Allow",
       "Action": [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject",
-        "s3:ListBucket",
-        "s3:CreateBucket",
-        "s3:PutBucketTagging",
-        "s3:GetBucketTagging",
-        "s3:PutEncryptionConfiguration",
-        "s3:GetEncryptionConfiguration",
-        "s3:PutBucketPolicy",
-        "s3:PutBucketWebsite",
-        "s3:GetBucketWebsite",
-        "s3:PutBucketPublicAccessBlock",
-        "s3:GetBucketPublicAccessBlock"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "cloudformation:CreateStack",
-        "cloudformation:DescribeStacks",
-        "cloudformation:DescribeStackResource",
-        "cloudformation:UpdateStack",
-        "cloudformation:DeleteStack",
-        "cloudformation:GetTemplate",
-        "cloudformation:ValidateTemplate",
-        "cloudformation:CreateChangeSet",
-        "cloudformation:ExecuteChangeSet",
-        "cloudformation:DeleteChangeSet",
-        "cloudformation:DescribeChangeSet",
-        "cloudformation:DescribeStackEvents",
-        "cloudformation:ListStackResources"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "iam:GetRole"
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:GetRole",
+        "iam:PassRole"
       ],
       "Resource": "*"
     }
