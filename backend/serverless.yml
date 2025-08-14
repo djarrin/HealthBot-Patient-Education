@@ -36,15 +36,6 @@ provider:
 functions:
   processUserMessage:
     handler: src/handlers/process_user_message.handler
-    events:
-      - http:
-          path: /api/messages
-          method: post
-          cors: true
-          authorizer:
-            name: cognitoAuthorizer
-            type: COGNITO_USER_POOLS
-            arn: !GetAtt CognitoUserPool.Arn
 
 plugins:
   - serverless-python-requirements
