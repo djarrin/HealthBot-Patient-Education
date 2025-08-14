@@ -11,7 +11,7 @@ export default function HealthBotChat() {
   const [quizQuestion, setQuizQuestion] = useState(null);
   const [quizAnswer, setQuizAnswer] = useState('');
   const [showQuiz, setShowQuiz] = useState(false);
-  const [quizResult, setQuizResult] = useState(null);
+
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
 
@@ -45,17 +45,7 @@ export default function HealthBotChat() {
     }
   };
 
-  const simulateBotResponse = (response, delay = 1000) => {
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      addMessage({
-        type: 'bot',
-        content: response,
-        timestamp: new Date()
-      });
-    }, delay);
-  };
+
 
   const handleTopicSubmit = async (topic) => {
     addMessage({
@@ -135,7 +125,7 @@ export default function HealthBotChat() {
         citations: ['Citation 1 from the summary', 'Citation 2 from the summary']
       };
       
-      setQuizResult(result);
+
       setShowQuiz(false);
       setCurrentStep('quiz-complete');
       
@@ -162,7 +152,7 @@ export default function HealthBotChat() {
     setQuizQuestion(null);
     setQuizAnswer('');
     setShowQuiz(false);
-    setQuizResult(null);
+
     
     setTimeout(() => {
       addMessage({
