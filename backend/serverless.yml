@@ -38,7 +38,7 @@ provider:
             - secretsmanager:GetSecretValue
             - secretsmanager:DescribeSecret
           Resource:
-            - !GetAtt HealthBotSecrets.Arn
+            - "arn:aws:secretsmanager:us-east-1:*:secret:healthbot-backend-secrets-*"
 
 functions:
   processUserMessage:
@@ -55,4 +55,3 @@ resources:
   - ${file(resources/dynamodb.yml)}
   - ${file(resources/api-gateway.yml)}
   - ${file(resources/cognito.yml)}
-  - ${file(resources/secrets-manager.yml)}

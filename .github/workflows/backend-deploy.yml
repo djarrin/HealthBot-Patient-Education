@@ -33,17 +33,22 @@ jobs:
           }
           EOF
           
-          # Create or update the secret in AWS Secrets Manager
-          aws secretsmanager create-secret \
-            --name "healthbot-backend-secrets-dev" \
-            --description "Secrets for HealthBot backend including API keys" \
-            --secret-string file://secrets.json \
-            --region us-east-1 || \
-          aws secretsmanager update-secret \
-            --secret-id "healthbot-backend-secrets-dev" \
-            --secret-string file://secrets.json \
-            --region us-east-1
-            
+          # Check if secret exists
+          if aws secretsmanager describe-secret --secret-id "healthbot-backend-secrets-dev" --region us-east-1 >/dev/null 2>&1; then
+            echo "Secret exists, updating..."
+            aws secretsmanager update-secret \
+              --secret-id "healthbot-backend-secrets-dev" \
+              --secret-string file://secrets.json \
+              --region us-east-1
+          else
+            echo "Secret does not exist, creating..."
+            aws secretsmanager create-secret \
+              --name "healthbot-backend-secrets-dev" \
+              --description "Secrets for HealthBot backend including API keys" \
+              --secret-string file://secrets.json \
+              --region us-east-1
+          fi
+          
           # Clean up the temporary file
           rm secrets.json
 
