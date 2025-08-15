@@ -71,4 +71,11 @@ Paste them into GitHub Secrets under:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
+### 5. Add API Keys to GitHub Secrets
+
+Add these additional secrets to your GitHub repository (Settings > Secrets and variables > Actions):
+
+- `OPENAI_API_KEY` - Your OpenAI API key for LLM functionality
+- `TAVILY_API_KEY` - Your Tavily API key for web search functionality
+
 ---
