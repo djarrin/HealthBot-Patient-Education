@@ -23,14 +23,14 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: expireAt
-        Enabled: true
-      Tags:
-        - Key: Environment
-          Value: ${self:provider.stage}
-        - Key: Service
-          Value: ${self:service}
+              TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        Tags:
+          - Key: Environment
+            Value: ${self:provider.stage}
+          - Key: Service
+            Value: ${self:service}
 
   UserMessagesTable:
     Type: AWS::DynamoDB::Table
@@ -56,14 +56,14 @@ Resources:
               KeyType: HASH
           Projection:
             ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: expireAt
-        Enabled: true
-      Tags:
-        - Key: Environment
-          Value: ${self:provider.stage}
-        - Key: Service
-          Value: ${self:service}
+              TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        Tags:
+          - Key: Environment
+            Value: ${self:provider.stage}
+          - Key: Service
+            Value: ${self:service}
 
   SessionStateTable:
     Type: AWS::DynamoDB::Table
@@ -81,14 +81,14 @@ Resources:
           KeyType: HASH
         - AttributeName: checkpoint_id
           KeyType: RANGE
-      TimeToLiveSpecification:
-        AttributeName: expireAt
-        Enabled: true
-      Tags:
-        - Key: Environment
-          Value: ${self:provider.stage}
-        - Key: Service
-          Value: ${self:service}
+              TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        Tags:
+          - Key: Environment
+            Value: ${self:provider.stage}
+          - Key: Service
+            Value: ${self:service}
 
 Outputs:
   ChatSessionsTableName:

@@ -313,8 +313,7 @@ def build_graph():
         billing_mode="PAY_PER_REQUEST",
         enable_encryption=True,
         enable_point_in_time_recovery=True,
-        ttl_days=30,
-        ttl_attribute="expireAt"  # Use a different name to avoid reserved keyword conflict
+        ttl_days=None  # Disable TTL in langgraph since we handle it manually
     )
     
     config = DynamoDBConfig(
