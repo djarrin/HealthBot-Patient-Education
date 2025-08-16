@@ -69,6 +69,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     Properties:
+      TableName: ${self:service}-session-state-${self:provider.stage}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: thread_id

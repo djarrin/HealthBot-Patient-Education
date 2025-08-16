@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langgraph.graph import StateGraph, END
-from langgraph_checkpoint_dynamodb import DynamoDBSaver
+from langgraph_checkpoint_dynamodb import DynamoDBSaver, DynamoDBConfig, DynamoDBTableConfig
 
 
 class HealthBotState(TypedDict, total=False):
@@ -307,8 +307,22 @@ def build_graph():
     graph.add_conditional_edges("present_grade", router)
     graph.add_conditional_edges("handle_restart", router)
 
-    # Use DynamoDB checkpointing with deploy=True to create table if it doesn't exist
-    checkpointer = DynamoDBSaver(deploy=True)
+    # Use DynamoDB checkpointing with custom configuration
+    table_config = DynamoDBTableConfig(
+        table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-dev'),
+        billing_mode="PAY_PER_REQUEST",
+        enable_encryption=True,
+        enable_point_in_time_recovery=True,
+        ttl_days=30
+    )
+    
+    config = DynamoDBConfig(
+        table_config=table_config,
+        region_name=os.environ.get('AWS_REGION', 'us-east-1')
+    )
+    
+    # Use deploy=False since we're managing the table via CloudFormation
+    checkpointer = DynamoDBSaver(config, deploy=False)
     
     return graph.compile(checkpointer=checkpointer)
 

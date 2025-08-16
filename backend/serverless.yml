@@ -29,6 +29,21 @@ provider:
             - !GetAtt SessionStateTable.Arn
         - Effect: Allow
           Action:
+            - dynamodb:CreateTable
+            - dynamodb:DescribeTable
+            - dynamodb:UpdateTable
+            - dynamodb:DeleteTable
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:Scan
+          Resource:
+            - "arn:aws:dynamodb:us-east-1:*:table/langgraph-checkpoint"
+            - "arn:aws:dynamodb:us-east-1:*:table/langgraph-checkpoint/*"
+        - Effect: Allow
+          Action:
             - logs:CreateLogGroup
             - logs:CreateLogStream
             - logs:PutLogEvents
