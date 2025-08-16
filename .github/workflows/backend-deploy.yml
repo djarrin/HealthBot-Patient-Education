@@ -23,6 +23,35 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Deploy secrets to AWS Secrets Manager
+        run: |
+          # Create the secret JSON structure
+          cat > secrets.json << EOF
+          {
+            "OPENAI_API_KEY": "${{ secrets.OPENAI_API_KEY }}",
+            "TAVILY_API_KEY": "${{ secrets.TAVILY_API_KEY }}"
+          }
+          EOF
+          
+          # Check if secret exists
+          if aws secretsmanager describe-secret --secret-id "healthbot-backend-secrets-dev" --region us-east-1 >/dev/null 2>&1; then
+            echo "Secret exists, updating..."
+            aws secretsmanager update-secret \
+              --secret-id "healthbot-backend-secrets-dev" \
+              --secret-string file://secrets.json \
+              --region us-east-1
+          else
+            echo "Secret does not exist, creating..."
+            aws secretsmanager create-secret \
+              --name "healthbot-backend-secrets-dev" \
+              --description "Secrets for HealthBot backend including API keys" \
+              --secret-string file://secrets.json \
+              --region us-east-1
+          fi
+          
+          # Clean up the temporary file
+          rm secrets.json
+
       - name: Install Serverless Framework
         run: npm install -g serverless@3
 

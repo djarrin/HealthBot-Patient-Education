@@ -67,15 +67,19 @@ Resources:
 
   SessionStateTable:
     Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
     Properties:
-      TableName: ${self:service}-session-state-${self:provider.stage}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: sessionId
+        - AttributeName: thread_id
+          AttributeType: S
+        - AttributeName: checkpoint_id
           AttributeType: S
       KeySchema:
-        - AttributeName: sessionId
+        - AttributeName: thread_id
           KeyType: HASH
+        - AttributeName: checkpoint_id
+          KeyType: RANGE
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
