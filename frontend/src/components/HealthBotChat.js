@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from 'aws-amplify/auth';
+import apiService from '../services/api';
 import '../assets/healthbot-chat.css';
 
 export default function HealthBotChat() {
@@ -11,6 +12,7 @@ export default function HealthBotChat() {
   const [quizQuestion, setQuizQuestion] = useState(null);
   const [quizAnswer, setQuizAnswer] = useState('');
   const [showQuiz, setShowQuiz] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
 
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
@@ -30,6 +32,22 @@ export default function HealthBotChat() {
       content: "Hello! I'm your HealthBot assistant. I'm here to help you learn about health topics and test your knowledge. What health topic or medical condition would you like to learn about today?",
       timestamp: new Date()
     });
+
+    // Test API connection on component mount
+    const testConnection = async () => {
+      try {
+        const isConnected = await apiService.testConnection();
+        if (!isConnected) {
+          console.warn('API connection test failed - check your configuration');
+        } else {
+          console.log('API connection test successful');
+        }
+      } catch (error) {
+        console.error('API connection test error:', error);
+      }
+    };
+
+    testConnection();
   }, []);
 
   const addMessage = (message) => {
@@ -45,7 +63,42 @@ export default function HealthBotChat() {
     }
   };
 
+  const sendMessageToAPI = async (messageContent) => {
+    try {
+      setIsTyping(true);
+      
+      const response = await apiService.sendMessage(messageContent, sessionId);
 
+      // Update session ID if provided
+      if (response.sessionId && !sessionId) {
+        setSessionId(response.sessionId);
+      }
+
+      // Add bot response
+      if (response.response && response.response.content) {
+        addMessage({
+          type: 'bot',
+          content: response.response.content,
+          timestamp: new Date(response.response.timestamp || Date.now())
+        });
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Error sending message to API:', error);
+      
+      // Add error message
+      addMessage({
+        type: 'bot',
+        content: "I'm sorry, I'm having trouble connecting to my services right now. Please try again in a moment.",
+        timestamp: new Date()
+      });
+      
+      throw error;
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   const handleTopicSubmit = async (topic) => {
     addMessage({
@@ -55,56 +108,43 @@ export default function HealthBotChat() {
     });
 
     setCurrentStep('searching');
-    setIsTyping(true);
 
-    // Simulate searching for information
-    setTimeout(() => {
-      setIsTyping(false);
-      addMessage({
-        type: 'bot',
-        content: `I'm searching for the latest information about ${topic}...`,
-        timestamp: new Date()
-      });
-
-      // Simulate finding and summarizing information
-      setTimeout(() => {
-        addMessage({
-          type: 'bot',
-          content: `Here's what I found about ${topic}:\n\n**Summary:**\nThis is a patient-friendly summary of the latest medical information about ${topic}. The information includes key points, important facts, and practical advice that you should know.\n\n**Key Points:**\n• Point 1 about ${topic}\n• Point 2 about ${topic}\n• Point 3 about ${topic}\n\nTake your time to read through this information. When you're ready for a comprehension check, just let me know!`,
-          timestamp: new Date()
-        });
+    try {
+      const response = await sendMessageToAPI(`I'd like to learn about: ${topic}`);
+      
+      // Check if the response indicates we're ready for a quiz
+      if (response.response && response.response.status === 'ready_for_quiz') {
         setCurrentStep('ready-for-quiz');
-      }, 2000);
-    }, 1500);
+      } else {
+        setCurrentStep('ready-for-quiz');
+      }
+    } catch (error) {
+      setCurrentStep('error');
+    }
   };
 
-  const handleReadyForQuiz = () => {
+  const handleReadyForQuiz = async () => {
     addMessage({
       type: 'user',
       content: 'I\'m ready for the comprehension check!',
       timestamp: new Date()
     });
 
-    // Simulate generating quiz question
-    setTimeout(() => {
-      const mockQuiz = {
-        question: `Based on the information about the health topic, which of the following is most accurate?`,
-        options: [
-          'Option A: This is the correct answer',
-          'Option B: This is an incorrect option',
-          'Option C: This is another incorrect option',
-          'Option D: This is also incorrect'
-        ],
-        correctAnswer: 0
-      };
+    try {
+      const response = await sendMessageToAPI('I\'m ready for the comprehension check!');
       
-      setQuizQuestion(mockQuiz);
-      setShowQuiz(true);
-      setCurrentStep('quiz');
-    }, 1000);
+      // Check if the response contains quiz information
+      if (response.response && response.response.content) {
+        // Parse quiz from response if available
+        // For now, we'll use a simple approach and let the backend handle the quiz logic
+        setCurrentStep('quiz');
+      }
+    } catch (error) {
+      setCurrentStep('error');
+    }
   };
 
-  const handleQuizSubmit = () => {
+  const handleQuizSubmit = async () => {
     if (!quizAnswer) return;
 
     addMessage({
@@ -113,37 +153,19 @@ export default function HealthBotChat() {
       timestamp: new Date()
     });
 
-    // Simulate evaluating the answer
-    setTimeout(() => {
-      const isCorrect = quizAnswer === 'Option A: This is the correct answer';
-      const result = {
-        correct: isCorrect,
-        grade: isCorrect ? 'A' : 'C',
-        explanation: isCorrect 
-          ? 'Excellent! You correctly identified the key point from the information provided. This demonstrates a good understanding of the topic.'
-          : 'Good effort! The correct answer was Option A. Here\'s why: [explanation with citations from the summary]. Keep learning!',
-        citations: ['Citation 1 from the summary', 'Citation 2 from the summary']
-      };
+    try {
+      const response = await sendMessageToAPI(`My answer: ${quizAnswer}`);
       
-
       setShowQuiz(false);
       setCurrentStep('quiz-complete');
       
-      addMessage({
-        type: 'bot',
-        content: `**Quiz Result: Grade ${result.grade}**\n\n${result.explanation}\n\n**Citations:**\n${result.citations.map(c => `• ${c}`).join('\n')}`,
-        timestamp: new Date()
-      });
-
-      setTimeout(() => {
-        addMessage({
-          type: 'bot',
-          content: 'Would you like to learn about another health topic, or would you like to end this session?',
-          timestamp: new Date()
-        });
+      // Check if we should end the session or continue
+      if (response.response && response.response.status === 'session_end') {
         setCurrentStep('session-end');
-      }, 1000);
-    }, 1500);
+      }
+    } catch (error) {
+      setCurrentStep('error');
+    }
   };
 
   const handleNewTopic = () => {
@@ -152,8 +174,8 @@ export default function HealthBotChat() {
     setQuizQuestion(null);
     setQuizAnswer('');
     setShowQuiz(false);
+    setSessionId(null); // Reset session for new topic
 
-    
     setTimeout(() => {
       addMessage({
         type: 'bot',
@@ -163,36 +185,41 @@ export default function HealthBotChat() {
     }, 500);
   };
 
-  const handleEndSession = () => {
+  const handleEndSession = async () => {
     addMessage({
       type: 'user',
       content: 'I\'d like to end this session.',
       timestamp: new Date()
     });
 
-    addMessage({
-      type: 'bot',
-      content: 'Thank you for using HealthBot! I hope you learned something valuable today. Feel free to come back anytime to learn about more health topics. Take care!',
-      timestamp: new Date()
-    });
+    try {
+      await sendMessageToAPI('I\'d like to end this session.');
+    } catch (error) {
+      // Even if API fails, show end message
+      addMessage({
+        type: 'bot',
+        content: 'Thank you for using HealthBot! I hope you learned something valuable today. Feel free to come back anytime to learn about more health topics. Take care!',
+        timestamp: new Date()
+      });
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isTyping) return;
 
     const userInput = inputValue.trim();
     setInputValue('');
 
     if (currentStep === 'welcome') {
-      handleTopicSubmit(userInput);
+      await handleTopicSubmit(userInput);
     } else if (currentStep === 'ready-for-quiz' && userInput.toLowerCase().includes('ready')) {
-      handleReadyForQuiz();
+      await handleReadyForQuiz();
     } else if (currentStep === 'session-end') {
       if (userInput.toLowerCase().includes('another') || userInput.toLowerCase().includes('new')) {
         handleNewTopic();
       } else if (userInput.toLowerCase().includes('end') || userInput.toLowerCase().includes('exit')) {
-        handleEndSession();
+        await handleEndSession();
       } else {
         addMessage({
           type: 'bot',
@@ -201,11 +228,18 @@ export default function HealthBotChat() {
         });
       }
     } else {
+      // Send any other message to the API
       addMessage({
         type: 'user',
         content: userInput,
         timestamp: new Date()
       });
+      
+      try {
+        await sendMessageToAPI(userInput);
+      } catch (error) {
+        // Error handling is done in sendMessageToAPI
+      }
     }
   };
 

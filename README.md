@@ -1,5 +1,59 @@
 # HealthBot-Patient-Education
 
+## Local Development Setup
+
+### Quick Start for Local Development
+
+1. **Clone and setup the project:**
+   ```bash
+   git clone <your-repo-url>
+   cd HealthBot-Patient-Education
+   ```
+
+2. **Deploy the backend first:**
+   ```bash
+   cd backend
+   npm install
+   serverless deploy
+   ```
+   Note down the API Gateway URL from the deployment output.
+
+3. **Setup the frontend:**
+   ```bash
+   cd ../frontend
+   ./setup-local.sh
+   ```
+
+4. **Configure environment variables:**
+   Edit the `.env` file in the frontend directory with your AWS configuration:
+   ```env
+   REACT_APP_COGNITO_REGION=us-east-1
+   REACT_APP_COGNITO_USER_POOL_ID=your-user-pool-id
+   REACT_APP_COGNITO_CLIENT_ID=your-client-id
+   REACT_APP_API_GATEWAY_URL=https://your-api-gateway-url/dev
+   ```
+
+5. **Start the frontend:**
+   ```bash
+   npm start
+   ```
+
+### Getting Your AWS Configuration
+
+After deploying the backend, you can find the required values:
+
+- **Cognito User Pool ID**: AWS Console → Cognito → User Pools → Your Pool → Pool ID
+- **Cognito Client ID**: AWS Console → Cognito → User Pools → Your Pool → App Integration → App Client ID
+- **API Gateway URL**: From the `serverless deploy` output or AWS Console → API Gateway → Your API → Stages → dev
+
+### Troubleshooting Local Development
+
+- **CORS Issues**: The backend is configured with CORS headers, but if you encounter issues, check that your API Gateway URL is correct
+- **Authentication Errors**: Ensure your Cognito configuration matches between frontend and backend
+- **API Connection**: Verify the backend Lambda function is deployed and the API Gateway endpoint is accessible
+
+---
+
 ## Initial AWS Setup
 
 ### 👤 Creating the IAM User with Correct Permissions
