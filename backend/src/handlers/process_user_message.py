@@ -32,8 +32,26 @@ def get_thread_state(thread_id: str) -> Dict[str, Any]:
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
+        print(f"Received event: {json.dumps(event, default=str)}")
+        
+        # Handle health check endpoint
+        path = event.get('path', '')
+        http_method = event.get('httpMethod', '')
+        print(f"Request path: {path}, method: {http_method}")
+        
+        if http_method == 'GET' and ('/health' in path or path.endswith('/health')):
+            return _response(200, {'status': 'healthy', 'message': 'HealthBot API is running'})
+        
         # Load secrets from AWS Secrets Manager and set as environment variables
+        print("Loading secrets...")
         set_secrets_as_env_vars()
+        
+        # Check if required environment variables are set
+        required_env_vars = ['OPENAI_API_KEY', 'TAVILY_API_KEY']
+        missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
+        if missing_vars:
+            print(f"Missing required environment variables: {missing_vars}")
+            return _response(500, {'error': 'Configuration error', 'message': f'Missing environment variables: {missing_vars}'})
         
         body = json.loads(event.get('body', '{}'))
         message_content = body.get('message', '').strip()
@@ -89,7 +107,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         
         # Run the graph with thread-based checkpointing
-        new_state = GRAPH.invoke(initial_state, config=config)
+        print(f"Invoking graph with initial state: {initial_state}")
+        try:
+            new_state = GRAPH.invoke(initial_state, config=config)
+            print(f"Graph invocation successful, new state: {new_state}")
+        except Exception as graph_error:
+            print(f"Error invoking graph: {str(graph_error)}")
+            import traceback
+            traceback.print_exc()
+            return _response(500, {'error': 'Graph execution error', 'message': str(graph_error)})
 
         # Extract bot response from the state
         bot_response = new_state.get('bot_message') or ""
@@ -137,8 +163,8 @@ def _response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'POST,OPTIONS'
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
         },
         'body': json.dumps(body)
     }
