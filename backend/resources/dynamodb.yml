@@ -24,7 +24,7 @@ Resources:
           Projection:
             ProjectionType: ALL
       TimeToLiveSpecification:
-        AttributeName: ttl
+        AttributeName: expireAt
         Enabled: true
       Tags:
         - Key: Environment
@@ -57,7 +57,7 @@ Resources:
           Projection:
             ProjectionType: ALL
       TimeToLiveSpecification:
-        AttributeName: ttl
+        AttributeName: expireAt
         Enabled: true
       Tags:
         - Key: Environment
@@ -82,7 +82,7 @@ Resources:
         - AttributeName: checkpoint_id
           KeyType: RANGE
       TimeToLiveSpecification:
-        AttributeName: ttl
+        AttributeName: expireAt
         Enabled: true
       Tags:
         - Key: Environment

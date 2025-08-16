@@ -72,19 +72,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             session_id = str(uuid.uuid4())
 
         now_iso = datetime.now(timezone.utc).isoformat()
-        ttl_30d = int(datetime.now(timezone.utc).timestamp()) + (30 * 24 * 60 * 60)
+        expire_at = int(datetime.now(timezone.utc).timestamp()) + (30 * 24 * 60 * 60)
 
         # Upsert chat session
         chat_sessions_table.update_item(
             Key={'sessionId': session_id},
-            UpdateExpression='SET userId=:uid, userEmail=:uem, lastActivity=:la, messageCount=if_not_exists(messageCount,:z)+:one, ttl=:ttl',
+            UpdateExpression='SET userId=:uid, userEmail=:uem, lastActivity=:la, messageCount=if_not_exists(messageCount,:z)+:one, expireAt=:expireAt',
             ExpressionAttributeValues={
                 ':uid': user_id,
                 ':uem': user_email,
                 ':la': now_iso,
                 ':z': 0,
                 ':one': 1,
-                ':ttl': ttl_30d
+                ':expireAt': expire_at
             }
         )
 
@@ -97,7 +97,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'userId': user_id,
             'content': message_content,
             'type': 'user',
-            'ttl': ttl_30d
+            'expireAt': expire_at
         })
 
         # Use thread-based checkpointing instead of manual state management
@@ -135,7 +135,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'userId': user_id,
                 'content': bot_response,
                 'type': 'bot',
-                'ttl': ttl_30d
+                'expireAt': expire_at
             })
 
         # Optional: Get the full thread state for debugging/logging
