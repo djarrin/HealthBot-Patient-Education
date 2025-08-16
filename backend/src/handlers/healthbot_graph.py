@@ -307,7 +307,7 @@ def build_graph():
     graph.add_conditional_edges("present_grade", router)
     graph.add_conditional_edges("handle_restart", router)
 
-    # Use DynamoDB checkpointing instead of no checkpointing
+    # Use DynamoDB checkpointing
     checkpointer = DynamoDBSaver(
         table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-dev')
     )
