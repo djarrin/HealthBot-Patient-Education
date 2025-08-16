@@ -43,6 +43,14 @@ provider:
 functions:
   processUserMessage:
     handler: src/handlers/process_user_message.handler
+    events:
+      - http:
+          path: api/messages
+          method: post
+          cors: true
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref CognitoUserPoolAuthorizer
 
 plugins:
   - serverless-python-requirements
@@ -53,5 +61,15 @@ custom:
 
 resources:
   - ${file(resources/dynamodb.yml)}
-  - ${file(resources/api-gateway.yml)}
   - ${file(resources/cognito.yml)}
+  
+  # API Gateway Authorizer
+  CognitoUserPoolAuthorizer:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      Name: cognitoAuthorizer
+      Type: COGNITO_USER_POOLS
+      IdentitySource: method.request.header.Authorization
+      RestApiId: !Ref ApiGatewayRestApi
+      ProviderARNs:
+        - !GetAtt CognitoUserPool.Arn

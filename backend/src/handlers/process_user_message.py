@@ -126,6 +126,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     except Exception as e:
         print(f"Error processing message: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return _response(500, {'error': 'Internal server error', 'message': str(e)})
 
 
