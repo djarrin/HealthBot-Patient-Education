@@ -42,6 +42,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if http_method == 'GET' and ('/health' in path or path.endswith('/health')):
             return _response(200, {'status': 'healthy', 'message': 'HealthBot API is running'})
         
+        # For non-health endpoints, check if we have authentication
+        if 'requestContext' not in event or 'authorizer' not in event['requestContext']:
+            return _response(401, {'error': 'Unauthorized', 'message': 'Authentication required'})
+        
         # Load secrets from AWS Secrets Manager and set as environment variables
         print("Loading secrets...")
         set_secrets_as_env_vars()
