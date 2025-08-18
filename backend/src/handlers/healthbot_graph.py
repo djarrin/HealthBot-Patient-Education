@@ -309,7 +309,7 @@ def build_graph():
 
     # Use DynamoDB checkpointing with custom configuration
     table_config = DynamoDBTableConfig(
-        table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-dev'),
+        table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-v2-dev'),
         billing_mode="PAY_PER_REQUEST",
         enable_encryption=True,
         enable_point_in_time_recovery=True,
