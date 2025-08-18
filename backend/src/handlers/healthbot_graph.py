@@ -45,9 +45,23 @@ class HealthBotState(TypedDict, total=False):
 
 
 def _get_llm() -> ChatOpenAI:
-    # Reads OPENAI_API_KEY from env implicitly
+    # Debug API key loading
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    print(f"OpenAI API Key (first 10 chars): {api_key[:10]}...")
+    print(f"OpenAI API Key length: {len(api_key)}")
+    
+    # For Volcengine relay, we need to configure the base URL
+    # Volcengine typically uses a different endpoint
+    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.volcengine.com/v1")
+    print(f"Using base URL: {base_url}")
+    
     # Keep a small, fast model for lambda latency
-    return ChatOpenAI(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
+    return ChatOpenAI(
+        model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), 
+        temperature=0,
+        api_key=api_key,
+        base_url=base_url
+    )
 
 
 def _get_tavily() -> TavilySearchResults:

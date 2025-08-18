@@ -34,7 +34,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Load secrets from AWS Secrets Manager and set as environment variables
         print("Loading secrets...")
-        set_secrets_as_env_vars()
+        secrets = set_secrets_as_env_vars()
+        print(f"Loaded secrets keys: {list(secrets.keys())}")
+        
+        # Debug API key loading
+        openai_key = os.environ.get('OPENAI_API_KEY', '')
+        print(f"OpenAI API Key loaded: {openai_key[:10] if openai_key else 'NOT_FOUND'}...")
+        print(f"OpenAI API Key length: {len(openai_key) if openai_key else 0}")
         
         # Check if required environment variables are set
         required_env_vars = ['OPENAI_API_KEY', 'TAVILY_API_KEY']
