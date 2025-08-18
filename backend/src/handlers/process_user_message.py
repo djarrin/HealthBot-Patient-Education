@@ -16,20 +16,6 @@ dynamodb = boto3.resource('dynamodb')
 chat_sessions_table = dynamodb.Table(os.environ['CHAT_SESSIONS_TABLE'])
 user_messages_table = dynamodb.Table(os.environ['USER_MESSAGES_TABLE'])
 
-def get_thread_state(thread_id: str) -> Dict[str, Any]:
-    """
-    Get the current state of a thread using LangGraph's checkpointing system.
-    Similar to the demo's graph.get_state() but for our DynamoDB-backed graph.
-    """
-    try:
-        # Get the current state from the graph's checkpointing system
-        config = {"configurable": {"thread_id": thread_id}}
-        state = GRAPH.get_state(config=config)
-        return state
-    except Exception as e:
-        print(f"Error getting thread state: {str(e)}")
-        return {}
-
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         print(f"Received event: {json.dumps(event, default=str)}")
@@ -68,8 +54,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_id = user_claims['sub']
         user_email = user_claims.get('email', '')
 
+        # Generate session ID if not provided
         if not session_id:
             session_id = str(uuid.uuid4())
+            print(f"Generated new session ID: {session_id}")
 
         now_iso = datetime.now(timezone.utc).isoformat()
         ttl_30d = int(datetime.now(timezone.utc).timestamp()) + (30 * 24 * 60 * 60)
@@ -91,7 +79,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
         )
 
-        # Persist user message with PK(sessionId), SK(timestamp)
+        # Persist user message
         message_id = str(uuid.uuid4())
         user_messages_table.put_item(Item={
             'sessionId': session_id,
@@ -103,26 +91,34 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'ttl': ttl_30d
         })
 
-        # Use thread-based checkpointing instead of manual state management
-        # The session_id becomes the thread_id for checkpointing
+        # Set up checkpointing configuration
         config = {"configurable": {"thread_id": session_id}}
         
-        # Create initial state with the user message
-        initial_state = {
-            "user_message": message_content,
-            "status": "collecting_topic"
-        }
-        
-        # Run the graph with thread-based checkpointing
-        print(f"Invoking graph with initial state: {initial_state}")
+        # Check if this is a new session or continuing existing session
         try:
+            # Try to get existing state
+            existing_state = GRAPH.get_state(config=config)
+            print(f"Found existing state for session {session_id}")
+            
+            # Update the state with new user message
+            existing_state["user_message"] = message_content
+            
+            # Continue the workflow from existing state
+            new_state = GRAPH.invoke(existing_state, config=config)
+            print(f"Continued workflow, new state: {new_state}")
+            
+        except Exception as e:
+            print(f"No existing state found for session {session_id}, starting new workflow: {str(e)}")
+            
+            # Create initial state for new session
+            initial_state = {
+                "user_message": message_content,
+                "status": "collecting_topic"
+            }
+            
+            # Run the workflow with new state
             new_state = GRAPH.invoke(initial_state, config=config)
-            print(f"Graph invocation successful, new state: {new_state}")
-        except Exception as graph_error:
-            print(f"Error invoking graph: {str(graph_error)}")
-            import traceback
-            traceback.print_exc()
-            return _response(500, {'error': 'Graph execution error', 'message': str(graph_error)})
+            print(f"Started new workflow, new state: {new_state}")
 
         # Extract bot response from the state
         bot_response = new_state.get('bot_message') or ""
@@ -140,11 +136,6 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'type': 'bot',
                 'ttl': ttl_30d
             })
-
-        # Optional: Get the full thread state for debugging/logging
-        # This shows how to query the checkpointed state, similar to the demo
-        thread_state = get_thread_state(session_id)
-        print(f"Thread state for {session_id}: {thread_state}")
 
         return _response(200, {
             'sessionId': session_id,

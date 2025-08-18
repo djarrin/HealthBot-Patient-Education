@@ -72,14 +72,14 @@ Resources:
       TableName: ${self:service}-session-state-${self:provider.stage}
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
-        - AttributeName: thread_id
+        - AttributeName: PK
           AttributeType: S
-        - AttributeName: checkpoint_id
+        - AttributeName: SK
           AttributeType: S
       KeySchema:
-        - AttributeName: thread_id
+        - AttributeName: PK
           KeyType: HASH
-        - AttributeName: checkpoint_id
+        - AttributeName: SK
           KeyType: RANGE
       TimeToLiveSpecification:
         AttributeName: ttl
