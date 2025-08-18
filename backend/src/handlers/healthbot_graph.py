@@ -52,7 +52,7 @@ def _get_llm() -> ChatOpenAI:
     
     # For Volcengine relay, we need to configure the base URL
     # Volcengine typically uses a different endpoint
-    base_url = os.environ.get("OPENAI_BASE_URL", "https://api.volcengine.com/v1")
+    base_url = os.environ.get("OPENAI_BASE_URL", "https://openai.vocareum.com/v1")
     print(f"Using base URL: {base_url}")
     
     # Keep a small, fast model for lambda latency
@@ -60,7 +60,8 @@ def _get_llm() -> ChatOpenAI:
         model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), 
         temperature=0,
         api_key=api_key,
-        base_url=base_url
+        base_url=base_url,
+        max_retries=0  # Disable retries to get immediate error feedback
     )
 
 
@@ -127,7 +128,16 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
         ]
     )
 
-    summary = llm.invoke(prompt.format_messages(topic=topic, sources=sources_block)).content
+    try:
+        response = llm.invoke(prompt.format_messages(topic=topic, sources=sources_block))
+        print(f"LLM Response type: {type(response)}")
+        print(f"LLM Response: {response}")
+        summary = response.content
+    except Exception as e:
+        print(f"Error calling LLM: {e}")
+        print(f"Error type: {type(e)}")
+        # Return a fallback response
+        summary = f"Unable to generate summary due to technical issues. Please try again later. Error: {str(e)}"
 
     # Build citations as ordered list of URLs
     citations = [r.get("url", "") for r in results if r.get("url")]
@@ -160,7 +170,12 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         ]
     )
 
-    raw = llm.invoke(prompt.format_messages(summary=summary)).content
+    try:
+        response = llm.invoke(prompt.format_messages(summary=summary))
+        raw = response.content
+    except Exception as e:
+        print(f"Error calling LLM in generate_question: {e}")
+        raw = '{"question": "What is one key point from the summary?", "choices": ["A short statement that aligns with the summary", "An unrelated claim", "A contradictory claim", "An extreme or unsafe recommendation"], "correct_letter": "A"}'
 
     # Be defensive parsing JSON; if bad, fallback to a simple question
     import json
@@ -216,9 +231,14 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
             )),
         ]
     )
-    raw = llm.invoke(
-        prompt.format_messages(answer=user_message, correct=correct_answer, summary=summary)
-    ).content
+    try:
+        response = llm.invoke(
+            prompt.format_messages(answer=user_message, correct=correct_answer, summary=summary)
+        )
+        raw = response.content
+    except Exception as e:
+        print(f"Error calling LLM in evaluate: {e}")
+        raw = '{"grade": "Incorrect", "explanation": "Unable to evaluate due to technical issues. Please try again."}'
 
     import json
     try:

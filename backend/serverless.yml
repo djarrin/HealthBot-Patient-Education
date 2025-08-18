@@ -12,7 +12,7 @@ provider:
     USER_MESSAGES_TABLE: ${self:service}-user-messages-${self:provider.stage}
     SESSION_STATE_TABLE: healthbot-backend-session-state-v2-${self:provider.stage}
     SECRETS_NAME: ${self:service}-secrets-${self:provider.stage}
-    OPENAI_BASE_URL: https://api.volcengine.com/v1
+    OPENAI_BASE_URL: https://openai.vocareum.com/v1
   iam:
     role:
       statements:
