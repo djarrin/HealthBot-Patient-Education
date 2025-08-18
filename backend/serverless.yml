@@ -10,7 +10,7 @@ provider:
   environment:
     CHAT_SESSIONS_TABLE: ${self:service}-chat-sessions-${self:provider.stage}
     USER_MESSAGES_TABLE: ${self:service}-user-messages-${self:provider.stage}
-    SESSION_STATE_TABLE: healthbot-backend-session-state-v2-${self:provider.stage}
+    SESSION_STATE_TABLE: ${self:service}-session-state-v2-${self:provider.stage}
     SECRETS_NAME: ${self:service}-secrets-${self:provider.stage}
     OPENAI_BASE_URL: https://openai.vocareum.com/v1
   iam:
@@ -37,6 +37,11 @@ provider:
             - dynamodb:DeleteItem
             - dynamodb:Query
             - dynamodb:Scan
+            - dynamodb:BatchGetItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:CreateTable
+            - dynamodb:DeleteTable
+            - dynamodb:ListTables
           Resource:
             - !GetAtt SessionStateTable.Arn
             - !Sub "${SessionStateTable.Arn}/*"
@@ -52,6 +57,11 @@ provider:
             - secretsmanager:DescribeSecret
           Resource:
             - "arn:aws:secretsmanager:us-east-1:*:secret:healthbot-backend-secrets-*"
+        - Effect: Allow
+          Action:
+            - dynamodb:*
+          Resource:
+            - "arn:aws:dynamodb:us-east-1:*:table/*"
 
 functions:
   processUserMessage:
