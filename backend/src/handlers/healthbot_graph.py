@@ -6,9 +6,9 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearch
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.dynamodb import DynamoDBSaver
+from langgraph_checkpoint_dynamodb import DynamoDBSaver, DynamoDBConfig, DynamoDBTableConfig
 
 
 class HealthBotState(TypedDict, total=False):
@@ -45,14 +45,29 @@ class HealthBotState(TypedDict, total=False):
 
 
 def _get_llm() -> ChatOpenAI:
-    # Reads OPENAI_API_KEY from env implicitly
+    # Debug API key loading
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    print(f"OpenAI API Key (first 10 chars): {api_key[:10]}...")
+    print(f"OpenAI API Key length: {len(api_key)}")
+    
+    # For Volcengine relay, we need to configure the base URL
+    # Volcengine typically uses a different endpoint
+    base_url = os.environ.get("OPENAI_BASE_URL", "https://openai.vocareum.com/v1")
+    print(f"Using base URL: {base_url}")
+    
     # Keep a small, fast model for lambda latency
-    return ChatOpenAI(model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), temperature=0)
+    return ChatOpenAI(
+        model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"), 
+        temperature=0,
+        api_key=api_key,
+        base_url=base_url,
+        max_retries=0  # Disable retries to get immediate error feedback
+    )
 
 
-def _get_tavily() -> TavilySearchResults:
+def _get_tavily() -> TavilySearch:
     # Reads TAVILY_API_KEY from env (the tool handles this internally)
-    return TavilySearchResults(max_results=5)
+    return TavilySearch(max_results=5)
 
 
 def node_collect_topic(state: HealthBotState) -> HealthBotState:
@@ -70,24 +85,69 @@ def node_collect_topic(state: HealthBotState) -> HealthBotState:
 
 
 def node_search(state: HealthBotState) -> HealthBotState:
-    tavily = _get_tavily()
-    topic = state.get("topic", "").strip()
-    results = tavily.run(topic)
-    # Normalize to a list of dicts we can cite later
-    normalized: List[Dict[str, Any]] = []
-    for r in results:
-        # Each result typically includes: {"url", "content", "title"}
-        url = r.get("url") or r.get("source")
-        title = r.get("title") or ""
-        content = r.get("content") or r.get("snippet") or ""
-        normalized.append({"url": url, "title": title, "content": content})
+    try:
+        tavily = _get_tavily()
+        topic = state.get("topic", "").strip()
+        
+        # Add timeout to prevent hanging
+        import signal
+        import time
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Search operation timed out")
+        
+        # Set a 10-second timeout
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(10)
+        
+        try:
+            results = tavily.run(topic)
+            signal.alarm(0)  # Cancel the alarm
+        except TimeoutError:
+            signal.alarm(0)  # Cancel the alarm
+            print("Search timed out, using fallback")
+            results = []
+        except Exception as e:
+            signal.alarm(0)  # Cancel the alarm
+            print(f"Search error: {e}")
+            results = []
+        
+        # Normalize to a list of dicts we can cite later
+        normalized: List[Dict[str, Any]] = []
+        for r in results:
+            # Each result typically includes: {"url", "content", "title"}
+            url = r.get("url") or r.get("source")
+            title = r.get("title") or ""
+            content = r.get("content") or r.get("snippet") or ""
+            normalized.append({"url": url, "title": title, "content": content})
+        
+        # If no results, provide a fallback
+        if not normalized:
+            normalized = [{
+                "url": "https://www.healthline.com",
+                "title": "Health Information",
+                "content": "General health information and resources."
+            }]
 
-    return {
-        **state,
-        "search_results": normalized,
-        "status": "summarizing",
-        "bot_message": "Found sources. Summarizing in plain language...",
-    }
+        return {
+            **state,
+            "search_results": normalized,
+            "status": "summarizing",
+            "bot_message": "Found sources. Summarizing in plain language...",
+        }
+    except Exception as e:
+        print(f"Error in search node: {e}")
+        # Return fallback state
+        return {
+            **state,
+            "search_results": [{
+                "url": "https://www.healthline.com",
+                "title": "Health Information",
+                "content": "General health information and resources."
+            }],
+            "status": "summarizing",
+            "bot_message": "Using general health information. Summarizing...",
+        }
 
 
 def node_summarize(state: HealthBotState) -> HealthBotState:
@@ -113,7 +173,16 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
         ]
     )
 
-    summary = llm.invoke(prompt.format_messages(topic=topic, sources=sources_block)).content
+    try:
+        response = llm.invoke(prompt.format_messages(topic=topic, sources=sources_block))
+        print(f"LLM Response type: {type(response)}")
+        print(f"LLM Response: {response}")
+        summary = response.content
+    except Exception as e:
+        print(f"Error calling LLM: {e}")
+        print(f"Error type: {type(e)}")
+        # Return a fallback response
+        summary = f"Unable to generate summary due to technical issues. Please try again later. Error: {str(e)}"
 
     # Build citations as ordered list of URLs
     citations = [r.get("url", "") for r in results if r.get("url")]
@@ -146,7 +215,12 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         ]
     )
 
-    raw = llm.invoke(prompt.format_messages(summary=summary)).content
+    try:
+        response = llm.invoke(prompt.format_messages(summary=summary))
+        raw = response.content
+    except Exception as e:
+        print(f"Error calling LLM in generate_question: {e}")
+        raw = '{"question": "What is one key point from the summary?", "choices": ["A short statement that aligns with the summary", "An unrelated claim", "A contradictory claim", "An extreme or unsafe recommendation"], "correct_letter": "A"}'
 
     # Be defensive parsing JSON; if bad, fallback to a simple question
     import json
@@ -202,9 +276,14 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
             )),
         ]
     )
-    raw = llm.invoke(
-        prompt.format_messages(answer=user_message, correct=correct_answer, summary=summary)
-    ).content
+    try:
+        response = llm.invoke(
+            prompt.format_messages(answer=user_message, correct=correct_answer, summary=summary)
+        )
+        raw = response.content
+    except Exception as e:
+        print(f"Error calling LLM in evaluate: {e}")
+        raw = '{"grade": "Incorrect", "explanation": "Unable to evaluate due to technical issues. Please try again."}'
 
     import json
     try:
@@ -307,10 +386,22 @@ def build_graph():
     graph.add_conditional_edges("present_grade", router)
     graph.add_conditional_edges("handle_restart", router)
 
-    # Use DynamoDB checkpointing instead of no checkpointing
-    checkpointer = DynamoDBSaver(
-        table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-dev')
+    # Use DynamoDB checkpointing with custom configuration
+    table_config = DynamoDBTableConfig(
+        table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-v2-dev'),
+        billing_mode="PAY_PER_REQUEST",
+        enable_encryption=True,
+        enable_point_in_time_recovery=True,
+        ttl_days=None  # Disable TTL in langgraph since we handle it manually
     )
+    
+    config = DynamoDBConfig(
+        table_config=table_config,
+        region_name=os.environ.get('AWS_REGION', 'us-east-1')
+    )
+    
+    # Use deploy=False since we're managing the table via CloudFormation
+    checkpointer = DynamoDBSaver(config, deploy=False)
     
     return graph.compile(checkpointer=checkpointer)
 
