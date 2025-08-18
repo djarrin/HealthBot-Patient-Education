@@ -106,11 +106,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             existing_state = GRAPH.get_state(config=config)
             print(f"Found existing state for session {session_id}")
             
+            # Convert state snapshot to dict if needed
+            if hasattr(existing_state, 'get'):
+                state_dict = existing_state
+            else:
+                # Convert state snapshot to dict
+                state_dict = dict(existing_state)
+            
             # Update the state with new user message
-            existing_state["user_message"] = message_content
+            state_dict["user_message"] = message_content
             
             # Continue the workflow from existing state
-            new_state = GRAPH.invoke(existing_state, config=config)
+            new_state = GRAPH.invoke(state_dict, config=config)
             print(f"Continued workflow, new state: {new_state}")
             
         except Exception as e:
