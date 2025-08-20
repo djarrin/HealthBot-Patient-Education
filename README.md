@@ -9,7 +9,7 @@ This guide will help you set up the HealthBot application for local development,
 #### Prerequisites
 
 - **Node.js** (v18 or higher)
-- **Python 3.9** (for backend Lambda functions)
+- **Python 3.11** (for backend Lambda functions)
 - **Git**
 
 #### 1. Clone and Setup the Project
@@ -59,7 +59,7 @@ cd backend
 npm install
 
 # Install Python dependencies for local development
-python3 -m pip install -r requirements.txt
+python3.11 -m pip install -r requirements.txt
 
 # Start the local backend server
 npm run dev
@@ -139,7 +139,7 @@ def node_search(state: HealthBotState) -> HealthBotState:
 #### Backend Issues
 
 **"Unsupported runtime" warning:**
-- ✅ This is normal and expected - the backend uses Python 3.9 locally
+- ✅ This is normal and expected - the backend uses Python 3.11 locally
 - ✅ The warning doesn't affect functionality
 
 **"Module not found" errors:**
@@ -177,7 +177,7 @@ cat .env  # Verify your API keys are set
 **Python version issues:**
 ```bash
 # Check your Python version
-python3 --version  # Should be 3.9.x
+python3.11 --version  # Should be 3.11.x
 ```
 
 ### 📁 Project Structure for Local Development

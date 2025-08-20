@@ -5,7 +5,7 @@ frameworkVersion: '^3.38.0'
 provider:
   name: aws
   region: us-east-1
-  runtime: python3.9
+  runtime: python3.11
   stage: dev
   environment:
     CHAT_SESSIONS_TABLE: ${self:service}-chat-sessions-${self:provider.stage}
@@ -94,6 +94,7 @@ custom:
     lambdaPort: 3002
     noPrependStageInUrl: true
     useChildProcesses: true
+    runtime: python3.11
   dynamodb:
     start:
       port: 8000
