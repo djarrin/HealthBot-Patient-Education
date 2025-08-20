@@ -11,6 +11,13 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -52,16 +59,13 @@ jobs:
           # Clean up the temporary file
           rm secrets.json
 
-      - name: Install Serverless Framework
-        run: npm install -g serverless@3
-
-      - name: Install serverless-python-requirements plugin
-        run: serverless plugin install -n serverless-python-requirements
+      - name: Install dependencies
         working-directory: backend
+        run: npm ci
 
       - name: Deploy backend via Serverless
         working-directory: backend
-        run: serverless deploy --force
+        run: npx serverless deploy --force
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

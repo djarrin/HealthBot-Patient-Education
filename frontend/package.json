@@ -22,7 +22,9 @@
     "eject": "react-scripts eject"
   },
   "devDependencies": {
-    "dotenv-cli": "^7.4.1"
+    "dotenv-cli": "^7.4.1",
+    "serverless": "^3.38.0",
+    "serverless-s3-sync": "^2.0.0"
   },
   "eslintConfig": {
     "extends": [
