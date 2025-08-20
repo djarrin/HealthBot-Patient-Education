@@ -103,6 +103,8 @@ def node_search(state: HealthBotState) -> HealthBotState:
         try:
             results = tavily.run(topic)
             signal.alarm(0)  # Cancel the alarm
+            print(f"Tavily results type: {type(results)}")
+            print(f"Tavily results: {results}")
         except TimeoutError:
             signal.alarm(0)  # Cancel the alarm
             print("Search timed out, using fallback")
@@ -112,14 +114,30 @@ def node_search(state: HealthBotState) -> HealthBotState:
             print(f"Search error: {e}")
             results = []
         
+        # Handle case where results is a string (error message)
+        if isinstance(results, str):
+            print(f"Tavily returned string instead of list: {results}")
+            results = []
+        
+        # Handle case where results is a dict with nested results
+        if isinstance(results, dict):
+            if 'results' in results:
+                results = results['results']
+            elif 'error' in results:
+                print(f"Tavily returned error: {results['error']}")
+                results = []
+        
         # Normalize to a list of dicts we can cite later
         normalized: List[Dict[str, Any]] = []
         for r in results:
             # Each result typically includes: {"url", "content", "title"}
-            url = r.get("url") or r.get("source")
-            title = r.get("title") or ""
-            content = r.get("content") or r.get("snippet") or ""
-            normalized.append({"url": url, "title": title, "content": content})
+            if isinstance(r, dict):
+                url = r.get("url") or r.get("source")
+                title = r.get("title") or ""
+                content = r.get("content") or r.get("snippet") or ""
+                normalized.append({"url": url, "title": title, "content": content})
+            else:
+                print(f"Skipping non-dict result: {r}")
         
         # If no results, provide a fallback
         if not normalized:
@@ -386,22 +404,32 @@ def build_graph():
     graph.add_conditional_edges("present_grade", router)
     graph.add_conditional_edges("handle_restart", router)
 
-    # Use DynamoDB checkpointing with custom configuration
-    table_config = DynamoDBTableConfig(
-        table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-v2-dev'),
-        billing_mode="PAY_PER_REQUEST",
-        enable_encryption=True,
-        enable_point_in_time_recovery=True,
-        ttl_days=None  # Disable TTL in langgraph since we handle it manually
-    )
+    # Check if running locally
+    is_local = os.getenv('IS_OFFLINE') == 'true'
     
-    config = DynamoDBConfig(
-        table_config=table_config,
-        region_name=os.environ.get('AWS_REGION', 'us-east-1')
-    )
-    
-    # Use deploy=False since we're managing the table via CloudFormation
-    checkpointer = DynamoDBSaver(config, deploy=False)
+    if is_local:
+        # Use memory checkpointer for local development
+        from langgraph.checkpoint.memory import MemorySaver
+        checkpointer = MemorySaver()
+        print("Using memory checkpointer for local development")
+    else:
+        # Use DynamoDB checkpointing with custom configuration for production
+        table_config = DynamoDBTableConfig(
+            table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-v2-dev'),
+            billing_mode="PAY_PER_REQUEST",
+            enable_encryption=True,
+            enable_point_in_time_recovery=True,
+            ttl_days=None  # Disable TTL in langgraph since we handle it manually
+        )
+        
+        config = DynamoDBConfig(
+            table_config=table_config,
+            region_name=os.environ.get('AWS_REGION', 'us-east-1')
+        )
+        
+        # Use deploy=False since we're managing the table via CloudFormation
+        checkpointer = DynamoDBSaver(config, deploy=False)
+        print("Using DynamoDB checkpointer for production")
     
     return graph.compile(checkpointer=checkpointer)
 

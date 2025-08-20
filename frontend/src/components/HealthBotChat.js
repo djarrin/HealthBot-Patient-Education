@@ -74,12 +74,24 @@ export default function HealthBotChat() {
         setSessionId(response.sessionId);
       }
 
-      // Add bot response
-      if (response.response && response.response.content) {
+      // Add bot response - handle both old and new response formats
+      let botContent = null;
+      let timestamp = new Date();
+      
+      if (response.message) {
+        // New format: response.message
+        botContent = response.message;
+      } else if (response.response && response.response.content) {
+        // Old format: response.response.content
+        botContent = response.response.content;
+        timestamp = new Date(response.response.timestamp || Date.now());
+      }
+      
+      if (botContent) {
         addMessage({
           type: 'bot',
-          content: response.response.content,
-          timestamp: new Date(response.response.timestamp || Date.now())
+          content: botContent,
+          timestamp: timestamp
         });
       }
 
@@ -266,12 +278,18 @@ export default function HealthBotChat() {
                 <div className="message-text">
                   {message.content.split('\n').map((line, index) => (
                     <div key={index}>
-                      {line.startsWith('**') && line.endsWith('**') ? (
+                      {line.startsWith('###') ? (
+                        <h3 className="message-header">{line.replace(/^###\s*/, '')}</h3>
+                      ) : line.startsWith('####') ? (
+                        <h4 className="message-header">{line.replace(/^####\s*/, '')}</h4>
+                      ) : line.startsWith('**') && line.endsWith('**') ? (
                         <strong>{line.slice(2, -2)}</strong>
                       ) : line.startsWith('•') ? (
                         <div className="bullet-point">{line}</div>
+                      ) : line.trim() === '' ? (
+                        <br />
                       ) : (
-                        line
+                        <span>{line}</span>
                       )}
                     </div>
                   ))}

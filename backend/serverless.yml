@@ -5,7 +5,7 @@ frameworkVersion: '^3.38.0'
 provider:
   name: aws
   region: us-east-1
-  runtime: python3.11
+  runtime: python3.9
   stage: dev
   environment:
     CHAT_SESSIONS_TABLE: ${self:service}-chat-sessions-${self:provider.stage}
@@ -67,13 +67,38 @@ functions:
   processUserMessage:
     handler: src/handlers/process_user_message.handler
     timeout: 180
+    events:
+      - http:
+          path: /process-message
+          method: post
+          cors: true
+          authorizer:
+            name: cognitoAuthorizer
+            type: COGNITO_USER_POOLS
+            arn: !GetAtt CognitoUserPool.Arn
+      - http:
+          path: /health
+          method: get
+          cors: true
 
 plugins:
   - serverless-python-requirements
+  - serverless-offline
+  - serverless-dynamodb-local
 
 custom:
   pythonRequirements:
     dockerizePip: non-linux
+  serverless-offline:
+    httpPort: 3001
+    lambdaPort: 3002
+    noPrependStageInUrl: true
+    useChildProcesses: true
+  dynamodb:
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
 
 resources:
   - ${file(resources/dynamodb.yml)}

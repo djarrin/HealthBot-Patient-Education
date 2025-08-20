@@ -40,11 +40,29 @@ def set_secrets_as_env_vars():
     Retrieve secrets from AWS Secrets Manager and set them as environment variables.
     This function should be called at the beginning of Lambda function execution.
     """
-    secrets = get_secrets()
-    
-    for key, value in secrets.items():
-        if value:  # Only set if value is not empty
-            os.environ[key] = value
-            print(f"Set environment variable: {key}")
-    
-    return secrets
+    # Check if running locally (serverless-offline sets this)
+    if os.getenv('IS_OFFLINE') == 'true':
+        # For local development, use environment variables directly
+        print("Running locally - using environment variables for secrets")
+        secrets = {
+            'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY'),
+            'TAVILY_API_KEY': os.getenv('TAVILY_API_KEY'),
+        }
+        
+        # Set any missing secrets as environment variables
+        for key, value in secrets.items():
+            if value:
+                os.environ[key] = value
+                print(f"Set environment variable: {key}")
+        
+        return secrets
+    else:
+        # In production, load from AWS Secrets Manager
+        secrets = get_secrets()
+        
+        for key, value in secrets.items():
+            if value:  # Only set if value is not empty
+                os.environ[key] = value
+                print(f"Set environment variable: {key}")
+        
+        return secrets

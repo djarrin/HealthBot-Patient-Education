@@ -28,8 +28,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if http_method == 'GET' and ('/health' in path or path.endswith('/health')):
             return _response(200, {'status': 'healthy', 'message': 'HealthBot API is running'})
         
-        # For non-health endpoints, check if we have authentication
-        if 'requestContext' not in event or 'authorizer' not in event['requestContext']:
+        # For local development, bypass authentication if running offline
+        is_local = os.getenv('IS_OFFLINE') == 'true'
+        
+        # For non-health endpoints, check if we have authentication (unless running locally)
+        if not is_local and ('requestContext' not in event or 'authorizer' not in event['requestContext']):
             return _response(401, {'error': 'Unauthorized', 'message': 'Authentication required'})
         
         # Load secrets from AWS Secrets Manager and set as environment variables
@@ -56,9 +59,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not message_content:
             return _response(400, {'error': 'Message content is required'})
 
-        user_claims = event['requestContext']['authorizer']['claims']
-        user_id = user_claims['sub']
-        user_email = user_claims.get('email', '')
+        # Get user info - use mock data for local development
+        if is_local:
+            user_id = body.get('userId', 'test-user-123')
+            user_email = body.get('userEmail', 'test@example.com')
+        else:
+            user_claims = event['requestContext']['authorizer']['claims']
+            user_id = user_claims['sub']
+            user_email = user_claims.get('email', '')
 
         # Generate session ID if not provided
         if not session_id:
@@ -68,109 +76,108 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         now_iso = datetime.now(timezone.utc).isoformat()
         ttl_30d = int(datetime.now(timezone.utc).timestamp()) + (30 * 24 * 60 * 60)
 
-        # Upsert chat session
-        chat_sessions_table.update_item(
-            Key={'sessionId': session_id},
-            UpdateExpression='SET userId=:uid, userEmail=:uem, lastActivity=:la, messageCount=if_not_exists(messageCount,:z)+:one, #ttl=:ttl',
-            ExpressionAttributeValues={
-                ':uid': user_id,
-                ':uem': user_email,
-                ':la': now_iso,
-                ':z': 0,
-                ':one': 1,
-                ':ttl': ttl_30d
-            },
-            ExpressionAttributeNames={
-                '#ttl': 'ttl'
-            }
-        )
+        # Skip DynamoDB operations for local development
+        if not is_local:
+            # Upsert chat session
+            chat_sessions_table.update_item(
+                Key={'sessionId': session_id},
+                UpdateExpression='SET userId=:uid, userEmail=:uem, lastActivity=:la, messageCount=if_not_exists(messageCount,:z)+:one, #ttl=:ttl',
+                ExpressionAttributeValues={
+                    ':uid': user_id,
+                    ':uem': user_email,
+                    ':la': now_iso,
+                    ':z': 0,
+                    ':one': 1,
+                    ':ttl': ttl_30d
+                },
+                ExpressionAttributeNames={
+                    '#ttl': 'ttl'
+                }
+            )
 
-        # Persist user message
-        message_id = str(uuid.uuid4())
-        user_messages_table.put_item(Item={
-            'sessionId': session_id,
-            'timestamp': now_iso,
-            'messageId': message_id,
-            'userId': user_id,
-            'content': message_content,
-            'type': 'user',
-            'ttl': ttl_30d
-        })
-
-        # Set up checkpointing configuration
-        config = {"configurable": {"thread_id": session_id}}
-        
-        # Check if this is a new session or continuing existing session
-        try:
-            # Try to get existing state
-            existing_state = GRAPH.get_state(config=config)
-            print(f"Found existing state for session {session_id}")
-            
-            # Convert state snapshot to dict if needed
-            if hasattr(existing_state, 'get'):
-                state_dict = existing_state
-            else:
-                # Convert state snapshot to dict
-                state_dict = dict(existing_state)
-            
-            # Update the state with new user message
-            state_dict["user_message"] = message_content
-            
-            # Continue the workflow from existing state
-            new_state = GRAPH.invoke(state_dict, config=config)
-            print(f"Continued workflow, new state: {new_state}")
-            
-        except Exception as e:
-            print(f"No existing state found for session {session_id}, starting new workflow: {str(e)}")
-            
-            # Create initial state for new session
-            initial_state = {
-                "user_message": message_content,
-                "status": "collecting_topic"
-            }
-            
-            # Run the workflow with new state
-            new_state = GRAPH.invoke(initial_state, config=config)
-            print(f"Started new workflow, new state: {new_state}")
-
-        # Extract bot response from the state
-        bot_response = new_state.get('bot_message') or ""
-
-        # Save bot message
-        bot_message_id = str(uuid.uuid4())
-        bot_timestamp = datetime.now(timezone.utc).isoformat()
-        if bot_response:
+            # Persist user message
+            message_id = str(uuid.uuid4())
             user_messages_table.put_item(Item={
                 'sessionId': session_id,
-                'timestamp': bot_timestamp,
-                'messageId': bot_message_id,
+                'timestamp': now_iso,
+                'messageId': message_id,
                 'userId': user_id,
-                'content': bot_response,
-                'type': 'bot',
+                'content': message_content,
+                'type': 'user',
                 'ttl': ttl_30d
             })
+        else:
+            # For local development, just generate a message ID
+            message_id = str(uuid.uuid4())
+            print(f"Local development: Skipping DynamoDB operations for session {session_id}")
+
+        # Set up checkpointing configuration
+        checkpoint_config = {
+            'configurable': {
+                'thread_id': session_id,
+                'user_id': user_id
+            }
+        }
+
+        # Run the LangGraph workflow
+        print(f"Running LangGraph workflow for session: {session_id}")
+        result = GRAPH.invoke(
+            {
+                'user_message': message_content,
+                'session_id': session_id,
+                'user_id': user_id
+            },
+            checkpoint_config
+        )
+
+        # Extract the response from the result
+        print(f"LangGraph result keys: {list(result.keys())}")
+        print(f"LangGraph result: {result}")
+        
+        # The response should be in bot_message based on our workflow
+        if 'bot_message' in result:
+            response_content = result['bot_message']
+        elif 'messages' in result and result['messages']:
+            # Fallback to messages format
+            assistant_messages = [msg for msg in result['messages'] if msg.get('role') == 'assistant']
+            if assistant_messages:
+                response_content = assistant_messages[-1].get('content', '')
+            else:
+                response_content = "I'm sorry, I couldn't generate a response at this time."
+        else:
+            response_content = "I'm sorry, I couldn't generate a response at this time."
+
+        # Persist assistant response (skip for local development)
+        assistant_message_id = str(uuid.uuid4())
+        if not is_local:
+            user_messages_table.put_item(Item={
+                'sessionId': session_id,
+                'timestamp': now_iso,
+                'messageId': assistant_message_id,
+                'userId': user_id,
+                'content': response_content,
+                'type': 'assistant',
+                'ttl': ttl_30d
+            })
+        else:
+            print(f"Local development: Skipping assistant message persistence for session {session_id}")
 
         return _response(200, {
+            'message': response_content,
             'sessionId': session_id,
-            'messageId': message_id,
-            'response': {
-                'content': bot_response,
-                'messageId': bot_message_id,
-                'timestamp': bot_timestamp,
-                'status': new_state.get('status')
-            }
+            'messageId': assistant_message_id
         })
 
     except Exception as e:
-        print(f"Error processing message: {str(e)}")
+        print(f"Error in handler: {str(e)}")
         import traceback
         traceback.print_exc()
         return _response(500, {'error': 'Internal server error', 'message': str(e)})
 
-
-def _response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
+def _response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Helper function to create API Gateway response."""
     return {
-        'statusCode': status,
+        'statusCode': status_code,
         'headers': {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',

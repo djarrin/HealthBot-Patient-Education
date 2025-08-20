@@ -137,6 +137,26 @@
   padding-left: 0.5rem;
 }
 
+.message-header {
+  margin: 0.5rem 0;
+  color: #2d3748;
+  font-weight: 600;
+}
+
+.message-text h3.message-header {
+  font-size: 1.2rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.message-text h4.message-header {
+  font-size: 1.1rem;
+  color: #4a5568;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
 .message-timestamp {
   font-size: 0.75rem;
   color: #a0aec0;

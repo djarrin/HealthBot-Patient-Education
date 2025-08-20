@@ -2,41 +2,213 @@
 
 ## Local Development Setup
 
-### Quick Start for Local Development
+### 🚀 Quick Start for Local Development
 
-1. **Clone and setup the project:**
-   ```bash
-   git clone <your-repo-url>
-   cd HealthBot-Patient-Education
-   ```
+This guide will help you set up the HealthBot application for local development, allowing you to work on AI workflows without deploying to AWS.
 
-2. **Deploy the backend first:**
-   ```bash
-   cd backend
-   npm install
-   serverless deploy
-   ```
-   Note down the API Gateway URL from the deployment output.
+#### Prerequisites
 
-3. **Setup the frontend:**
-   ```bash
-   cd ../frontend
-   ./setup-local.sh
-   ```
+- **Node.js** (v18 or higher)
+- **Python 3.9** (for backend Lambda functions)
+- **Git**
 
-4. **Configure environment variables:**
-   Edit the `.env` file in the frontend directory with your AWS configuration:
-   ```env
-   REACT_APP_COGNITO_REGION=us-east-1
-   REACT_APP_COGNITO_USER_POOL_ID=your-user-pool-id
-   REACT_APP_COGNITO_CLIENT_ID=your-client-id
-   REACT_APP_API_GATEWAY_URL=https://your-api-gateway-url/dev
-   ```
+#### 1. Clone and Setup the Project
 
-5. **Start the frontend:**
-   ```bash
-   npm start
-   ```
+```bash
+git clone <your-repo-url>
+cd HealthBot-Patient-Education
+```
+
+#### 2. Create Environment Configuration
+
+Create a top-level `.env` file with your API keys:
+
+```bash
+# Create the environment file
+cp env.example .env
+```
+
+Edit `.env` with your API keys:
+```env
+# API Keys (required for AI functionality)
+OPENAI_API_KEY=your-openai-api-key-here
+TAVILY_API_KEY=your-tavily-api-key-here
+
+# AWS Configuration (for local development, these can be mock values)
+AWS_ACCESS_KEY_ID=local
+AWS_SECRET_ACCESS_KEY=local
+AWS_DEFAULT_REGION=us-east-1
+
+# Backend Configuration
+OPENAI_BASE_URL=https://openai.vocareum.com/v1
+OPENAI_MODEL=gpt-4o-mini
+
+# Frontend Configuration (for local development)
+REACT_APP_COGNITO_REGION=us-east-1
+REACT_APP_COGNITO_USER_POOL_ID=local-dev-pool
+REACT_APP_COGNITO_CLIENT_ID=local-dev-client
+REACT_APP_API_GATEWAY_URL=http://localhost:3001
+```
+
+#### 3. Setup Backend (Local Development)
+
+```bash
+cd backend
+
+# Install Node.js dependencies
+npm install
+
+# Install Python dependencies for local development
+python3 -m pip install -r requirements.txt
+
+# Start the local backend server
+npm run dev
+```
+
+The backend will start on `http://localhost:3001` with:
+- ✅ **Serverless Offline** - Local Lambda emulation
+- ✅ **Memory Checkpointer** - No DynamoDB required
+- ✅ **Local API Keys** - Uses your `.env` configuration
+- ✅ **Real-time Logs** - See AI workflow execution
+
+#### 4. Setup Frontend (Local Development)
+
+In a new terminal:
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the frontend development server
+npm start
+```
+
+The frontend will start on `http://localhost:3000` and automatically connect to your local backend.
+
+#### 5. Test Your Local Setup
+
+1. **Open your browser** to `http://localhost:3000`
+2. **Send a test message** like "My heart hurts"
+3. **Watch the backend logs** to see the AI workflow in action
+4. **Verify the response** appears in the frontend chat
+
+### 🔧 Local Development Features
+
+#### Backend Features
+- **Real AI Workflows**: Full LangGraph workflow execution
+- **Local Search**: Tavily search integration works locally
+- **Memory State**: Session state stored in memory (no DynamoDB needed)
+- **Hot Reload**: Changes to Python code restart automatically
+- **Debug Logs**: Detailed logging of AI workflow steps
+
+#### Frontend Features
+- **Local Authentication**: Bypasses AWS Cognito for development
+- **Real-time Chat**: Live communication with local backend
+- **Markdown Rendering**: Proper display of AI responses with headers and formatting
+- **Session Management**: Maintains conversation state locally
+
+### 🛠️ Development Workflow
+
+#### Making Changes to AI Workflows
+
+1. **Edit the workflow** in `backend/src/handlers/healthbot_graph.py`
+2. **Save the file** - backend will auto-restart
+3. **Test immediately** - send a message through the frontend
+4. **See real-time logs** - watch the backend terminal for execution details
+
+#### Example: Modifying the Search Node
+
+```python
+# In healthbot_graph.py
+def node_search(state: HealthBotState) -> HealthBotState:
+    # Your changes here
+    print("Custom search logic running...")
+    # ...
+```
+
+#### Making Changes to Frontend
+
+1. **Edit React components** in `frontend/src/components/`
+2. **Save the file** - frontend will hot-reload
+3. **See changes immediately** - no restart needed
+
+### 🐛 Troubleshooting Local Development
+
+#### Backend Issues
+
+**"Unsupported runtime" warning:**
+- ✅ This is normal and expected - the backend uses Python 3.9 locally
+- ✅ The warning doesn't affect functionality
+
+**"Module not found" errors:**
+```bash
+cd backend
+python3 -m pip install -r requirements.txt
+```
+
+**Port already in use:**
+```bash
+# Kill existing processes
+pkill -f "serverless offline"
+npm run dev
+```
+
+#### Frontend Issues
+
+**"API connection failed":**
+- ✅ Ensure backend is running on `http://localhost:3001`
+- ✅ Check that the frontend is using the correct backend URL
+
+**"Authentication errors":**
+- ✅ Local development bypasses authentication
+- ✅ Check that `REACT_APP_API_GATEWAY_URL=http://localhost:3001` in `.env`
+
+#### General Issues
+
+**Environment variables not loading:**
+```bash
+# Ensure you're using the top-level .env file
+ls -la .env
+cat .env  # Verify your API keys are set
+```
+
+**Python version issues:**
+```bash
+# Check your Python version
+python3 --version  # Should be 3.9.x
+```
+
+### 📁 Project Structure for Local Development
+
+```
+HealthBot-Patient-Education/
+├── .env                    # Top-level environment configuration
+├── backend/
+│   ├── src/handlers/
+│   │   ├── healthbot_graph.py    # Main AI workflow logic
+│   │   └── process_user_message.py # Lambda handler
+│   ├── serverless.yml            # Serverless configuration
+│   └── requirements.txt          # Python dependencies
+├── frontend/
+│   ├── src/components/
+│   │   └── HealthBotChat.js      # Main chat component
+│   └── src/services/
+│       └── api.js               # API communication
+```
+
+### 🚀 Next Steps
+
+Once your local development environment is working:
+
+1. **Explore the AI workflow** in `healthbot_graph.py`
+2. **Test different health topics** through the chat interface
+3. **Modify the workflow logic** and see changes immediately
+4. **Add new AI capabilities** using LangChain and LangGraph
+5. **Deploy to AWS** when ready using the deployment instructions below
+
+---
 
 ### Getting Your AWS Configuration
 

@@ -2,12 +2,24 @@ import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth';
 
 class ApiService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_API_GATEWAY_URL;
+    // Use localhost for development if environment variable is not set or points to AWS
+    const envUrl = process.env.REACT_APP_API_GATEWAY_URL;
+    this.baseUrl = envUrl && !envUrl.includes('amazonaws.com') 
+      ? envUrl 
+      : 'http://localhost:3001';
+    
     console.log('API Service initialized with base URL:', this.baseUrl);
+    console.log('Environment URL was:', envUrl);
   }
 
   async getAuthToken() {
     try {
+      // For local development, bypass authentication
+      if (this.baseUrl.includes('localhost')) {
+        console.log('Local development mode - bypassing authentication');
+        return 'local-dev-token';
+      }
+      
       // First check if user is authenticated
       const user = await getCurrentUser();
       console.log('Current user:', user.username);
@@ -39,10 +51,16 @@ class ApiService {
         ...(sessionId && { sessionId })
       };
 
+      // For local development, add user info
+      if (this.baseUrl.includes('localhost')) {
+        requestBody.userId = 'test-user-123';
+        requestBody.userEmail = 'test@example.com';
+      }
+
       console.log('Request body:', requestBody);
 
       // Use fetch directly instead of Amplify API
-      const response = await fetch(`${this.baseUrl}/api/messages`, {
+      const response = await fetch(`${this.baseUrl}/process-message`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -72,6 +90,20 @@ class ApiService {
   async testConnection() {
     try {
       console.log('Testing API connection...');
+      
+      // For local development, skip auth
+      if (this.baseUrl.includes('localhost')) {
+        const response = await fetch(`${this.baseUrl}/health`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('Connection test response status:', response.status);
+        return response.ok;
+      }
+      
       const token = await this.getAuthToken();
       console.log('Auth token obtained successfully');
       

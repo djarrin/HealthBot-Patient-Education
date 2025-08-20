@@ -1,0 +1,40 @@
+{
+  "name": "healthbot-backend",
+  "version": "1.0.0",
+  "description": "HealthBot Backend - AI-powered patient education chatbot",
+  "main": "index.js",
+  "scripts": {
+    "dev": "dotenv -e ../.env -- serverless offline start --stage dev",
+    "deploy": "serverless deploy --stage dev",
+    "deploy:prod": "serverless deploy --stage prod",
+    "remove": "serverless remove --stage dev",
+    "logs": "serverless logs -f processUserMessage --stage dev",
+    "dynamodb:install": "serverless dynamodb install",
+    "dynamodb:start": "dotenv -e ../.env -- serverless dynamodb start",
+    "dynamodb:stop": "serverless dynamodb stop",
+    "dynamodb:docker:start": "docker-compose up -d dynamodb-local",
+    "dynamodb:docker:stop": "docker-compose down",
+    "dynamodb:docker:admin": "docker-compose up -d",
+    "test": "python -m pytest tests/",
+    "lint": "flake8 src/",
+    "format": "black src/"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.1",
+    "serverless": "^3.38.0",
+    "serverless-dynamodb-local": "^0.2.40",
+    "serverless-offline": "^12.0.4",
+    "serverless-python-requirements": "^6.0.0"
+  },
+  "keywords": [
+    "serverless",
+    "aws",
+    "lambda",
+    "python",
+    "ai",
+    "chatbot",
+    "healthcare"
+  ],
+  "author": "HealthBot Team",
+  "license": "MIT"
+}
