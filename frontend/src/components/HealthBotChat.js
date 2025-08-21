@@ -103,14 +103,14 @@ export default function HealthBotChat() {
   const handleTopicSubmit = async (topic) => {
     addMessage({
       type: 'user',
-      content: `I'd like to learn about: ${topic}`,
+      content: `${topic}`,
       timestamp: new Date()
     });
 
     setCurrentStep('searching');
 
     try {
-      const response = await sendMessageToAPI(`I'd like to learn about: ${topic}`);
+      const response = await sendMessageToAPI(`${topic}`);
       
       // Check if the response indicates we're ready for a quiz
       if (response.response && response.response.status === 'ready_for_quiz') {

@@ -281,6 +281,7 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
 
 
 def node_present_summary(state: HealthBotState) -> HealthBotState:
+    print("📄 Node: present_summary")
     messages = state["messages"]
     
     # Create confirmation prompt for the frontend
@@ -297,9 +298,10 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
+    print("📄 Setting status to 'presenting_summary' to pause for user interaction")
     return {
         **state, 
-        "status": "awaiting_ready_for_quiz",
+        "status": "presenting_summary",  # Changed from "awaiting_ready_for_quiz"
         "bot_message": "I've provided you with comprehensive information about your health topic. When you're ready for a quick comprehension check, click the button below.",
         "response_type": "confirmation",
         "confirmation_prompt": confirmation_prompt
@@ -553,6 +555,16 @@ def router(state: HealthBotState) -> str:
     
     print(f"🔀 Router called with status: {status}, user_message: '{user_message}'")
     
+    if status == "presenting_summary":
+        # If user has responded, transition to generate_question
+        if user_message:
+            print("✅ User responded after summary, routing to generate_question")
+            return "generate_question"
+        else:
+            # Always pause here to show summary to user
+            print("⏸️  Pausing at presenting_summary to show summary to user")
+            return END
+    
     if status == "awaiting_ready_for_quiz":
         # Continue only if user says ready
         if user_message in {"ready", "r", "ok", "go", "yes", "y"}:
@@ -608,7 +620,6 @@ def build_graph(checkpointer=None):
     graph.add_edge("collect_topic", "search")
     graph.add_edge("tools", "summarize")  # Tools always go to summarize after execution
     graph.add_edge("summarize", "present_summary")
-    graph.add_edge("present_summary", "generate_question")
     graph.add_edge("generate_question", "evaluate")
     graph.add_edge("evaluate", "handle_restart")
     
