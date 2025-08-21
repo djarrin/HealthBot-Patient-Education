@@ -106,7 +106,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         config = {"configurable": {"thread_id": session_id}}
         
         # Create the graph once for this request
-        graph = build_graph()
+        try:
+            graph = build_graph()
+            print("✅ Graph created successfully")
+        except Exception as e:
+            print(f"❌ Error creating graph: {e}")
+            import traceback
+            traceback.print_exc()
+            return _response(500, {'error': 'Graph creation failed', 'message': str(e)})
         
         # Check if this is a new session or continuing existing session
         try:
@@ -125,8 +132,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             state_dict["user_message"] = message_content
             
             # Continue the workflow from existing state
+            print("🔄 Invoking graph with existing state...")
             new_state = graph.invoke(state_dict, config=config)
-            print(f"Continued workflow, new state: {new_state}")
+            print(f"✅ Continued workflow, new state status: {new_state.get('status', 'unknown')}")
             
         except Exception as e:
             print(f"No existing state found for session {session_id}, starting new workflow: {str(e)}")
@@ -138,8 +146,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
             
             # Run the workflow with new state
-            new_state = graph.invoke(initial_state, config=config)
-            print(f"Started new workflow, new state: {new_state}")
+            print("🔄 Invoking graph with new state...")
+            try:
+                new_state = graph.invoke(initial_state, config=config)
+                print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
+            except Exception as invoke_error:
+                print(f"❌ Error invoking graph: {invoke_error}")
+                import traceback
+                traceback.print_exc()
+                return _response(500, {'error': 'Workflow execution failed', 'message': str(invoke_error)})
 
         # Extract bot response from the state
         bot_response = new_state.get('bot_message') or ""
