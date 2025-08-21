@@ -283,6 +283,7 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
 def node_present_summary(state: HealthBotState) -> HealthBotState:
     print("📄 Node: present_summary")
     messages = state["messages"]
+    summary = state.get("summary", "")
     
     # Create confirmation prompt for the frontend
     confirmation_prompt: ConfirmationPrompt = {
@@ -290,9 +291,12 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
         "requires_confirmation": True
     }
     
-    # Create AI message with confirmation prompt
+    # Create the full message including summary and confirmation prompt
+    full_message = f"{summary}\n\n---\n\nI've provided you with comprehensive information about your health topic. When you're ready for a quick comprehension check, click the button below."
+    
+    # Create AI message with the full content
     ai_message = AIMessage(
-        content="I've provided you with comprehensive information about your health topic. When you're ready for a quick comprehension check, click the button below.",
+        content=full_message,
         name="healthbot",
         id=str(uuid.uuid4())
     )
@@ -302,7 +306,7 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     return {
         **state, 
         "status": "presenting_summary",  # Changed from "awaiting_ready_for_quiz"
-        "bot_message": "I've provided you with comprehensive information about your health topic. When you're ready for a quick comprehension check, click the button below.",
+        "bot_message": full_message,  # Include the full message with summary
         "response_type": "confirmation",
         "confirmation_prompt": confirmation_prompt
     }
