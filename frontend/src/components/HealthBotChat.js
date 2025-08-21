@@ -73,7 +73,7 @@ export default function HealthBotChat() {
       const response = await apiService.sendMessage(messageContent, sessionId);
 
       // Update session ID if provided
-      if (response.sessionId && !sessionId) {
+      if (response.sessionId) {
         setSessionId(response.sessionId);
       }
 

@@ -23,12 +23,13 @@ user_messages_table = dynamodb.Table(os.environ['USER_MESSAGES_TABLE'])
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
-        print(f"Received event: {json.dumps(event, default=str)}")
+        print(f"🚀 Handler started")
+        print(f"📝 Received event: {json.dumps(event, default=str)}")
         
         # Handle health check endpoint
         path = event.get('path', '')
         http_method = event.get('httpMethod', '')
-        print(f"Request path: {path}, method: {http_method}")
+        print(f"🔍 Request path: {path}, method: {http_method}")
         
         if http_method == 'GET' and ('/health' in path or path.endswith('/health')):
             return _response(200, {'status': 'healthy', 'message': 'HealthBot API is running'})
@@ -38,25 +39,28 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return _response(401, {'error': 'Unauthorized', 'message': 'Authentication required'})
         
         # Load secrets from AWS Secrets Manager and set as environment variables
-        print("Loading secrets...")
+        print("🔐 Loading secrets...")
         secrets = set_secrets_as_env_vars()
-        print(f"Loaded secrets keys: {list(secrets.keys())}")
+        print(f"✅ Loaded secrets keys: {list(secrets.keys())}")
         
         # Debug API key loading
         openai_key = os.environ.get('OPENAI_API_KEY', '')
-        print(f"OpenAI API Key loaded: {openai_key[:10] if openai_key else 'NOT_FOUND'}...")
-        print(f"OpenAI API Key length: {len(openai_key) if openai_key else 0}")
+        print(f"🔑 OpenAI API Key loaded: {openai_key[:10] if openai_key else 'NOT_FOUND'}...")
+        print(f"🔑 OpenAI API Key length: {len(openai_key) if openai_key else 0}")
         
         # Check if required environment variables are set
         required_env_vars = ['OPENAI_API_KEY', 'TAVILY_API_KEY']
         missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
         if missing_vars:
-            print(f"Missing required environment variables: {missing_vars}")
+            print(f"❌ Missing required environment variables: {missing_vars}")
             return _response(500, {'error': 'Configuration error', 'message': f'Missing environment variables: {missing_vars}'})
         
         body = json.loads(event.get('body', '{}'))
         message_content = body.get('message', '').strip()
         session_id = body.get('sessionId')
+        
+        print(f"📨 Message content: '{message_content}'")
+        print(f"🆔 Session ID: '{session_id}'")
 
         if not message_content:
             return _response(400, {'error': 'Message content is required'})
@@ -115,20 +119,21 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             traceback.print_exc()
             return _response(500, {'error': 'Graph creation failed', 'message': str(e)})
         
-        # Check if this is a new session or continuing existing session
+        # Try to get existing state
+        print(f"🔍 Attempting to get existing state for session: {session_id}")
+        print(f"🔍 Config: {config}")
+        
         try:
-            # Try to get existing state
-            print(f"🔍 Attempting to get existing state for session: {session_id}")
-            print(f"🔍 Config: {config}")
             existing_state = graph.get_state(config=config)
             print(f"✅ Found existing state for session {session_id}")
+            print(f"🔍 Existing state type: {type(existing_state)}")
             print(f"🔍 Existing state keys: {list(existing_state.keys()) if hasattr(existing_state, 'keys') else 'No keys'}")
             
             # Convert state snapshot to dict if needed
             if hasattr(existing_state, 'get'):
                 state_dict = existing_state
             else:
-                # Convert state snapshot to dict
+                print(f"🔍 Converting state to dict...")
                 state_dict = dict(existing_state)
             
             print(f"🔍 State dict keys: {list(state_dict.keys())}")
@@ -142,11 +147,18 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             new_state = graph.invoke(state_dict, config=config)
             print(f"✅ Continued workflow, new state status: {new_state.get('status', 'unknown')}")
             
-        except Exception as e:
-            print(f"❌ No existing state found for session {session_id}, starting new workflow: {str(e)}")
-            print(f"🔍 Exception type: {type(e)}")
+        except Exception as state_error:
+            print(f"❌ Error getting existing state: {state_error}")
+            print(f"🔍 State error type: {type(state_error)}")
             import traceback
             traceback.print_exc()
+            raise state_error
+            
+    except Exception as e:
+        print(f"❌ No existing state found for session {session_id}, starting new workflow: {str(e)}")
+        print(f"🔍 Exception type: {type(e)}")
+        import traceback
+        traceback.print_exc()
             
             # Create initial state for new session
             initial_state = {
@@ -156,9 +168,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Run the workflow with new state
             print("🔄 Invoking graph with new state...")
+            print(f"🔍 Initial state: {initial_state}")
             try:
                 new_state = graph.invoke(initial_state, config=config)
                 print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
+                print(f"🔍 New state keys: {list(new_state.keys()) if hasattr(new_state, 'keys') else 'No keys'}")
             except Exception as invoke_error:
                 print(f"❌ Error invoking graph: {invoke_error}")
                 import traceback
