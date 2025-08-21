@@ -118,8 +118,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Check if this is a new session or continuing existing session
         try:
             # Try to get existing state
+            print(f"🔍 Attempting to get existing state for session: {session_id}")
+            print(f"🔍 Config: {config}")
             existing_state = graph.get_state(config=config)
-            print(f"Found existing state for session {session_id}")
+            print(f"✅ Found existing state for session {session_id}")
+            print(f"🔍 Existing state keys: {list(existing_state.keys()) if hasattr(existing_state, 'keys') else 'No keys'}")
             
             # Convert state snapshot to dict if needed
             if hasattr(existing_state, 'get'):
@@ -127,6 +130,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             else:
                 # Convert state snapshot to dict
                 state_dict = dict(existing_state)
+            
+            print(f"🔍 State dict keys: {list(state_dict.keys())}")
+            print(f"🔍 Current status: {state_dict.get('status', 'unknown')}")
             
             # Update the state with new user message
             state_dict["user_message"] = message_content
@@ -137,7 +143,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f"✅ Continued workflow, new state status: {new_state.get('status', 'unknown')}")
             
         except Exception as e:
-            print(f"No existing state found for session {session_id}, starting new workflow: {str(e)}")
+            print(f"❌ No existing state found for session {session_id}, starting new workflow: {str(e)}")
+            print(f"🔍 Exception type: {type(e)}")
+            import traceback
+            traceback.print_exc()
             
             # Create initial state for new session
             initial_state = {
