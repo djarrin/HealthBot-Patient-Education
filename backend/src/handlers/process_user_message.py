@@ -159,25 +159,25 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print(f"🔍 Exception type: {type(e)}")
         import traceback
         traceback.print_exc()
-            
-            # Create initial state for new session
-            initial_state = {
-                "user_message": message_content,
-                "status": "collecting_topic"
-            }
-            
-            # Run the workflow with new state
-            print("🔄 Invoking graph with new state...")
-            print(f"🔍 Initial state: {initial_state}")
-            try:
-                new_state = graph.invoke(initial_state, config=config)
-                print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
-                print(f"🔍 New state keys: {list(new_state.keys()) if hasattr(new_state, 'keys') else 'No keys'}")
-            except Exception as invoke_error:
-                print(f"❌ Error invoking graph: {invoke_error}")
-                import traceback
-                traceback.print_exc()
-                return _response(500, {'error': 'Workflow execution failed', 'message': str(invoke_error)})
+        
+        # Create initial state for new session
+        initial_state = {
+            "user_message": message_content,
+            "status": "collecting_topic"
+        }
+        
+        # Run the workflow with new state
+        print("🔄 Invoking graph with new state...")
+        print(f"🔍 Initial state: {initial_state}")
+        try:
+            new_state = graph.invoke(initial_state, config=config)
+            print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
+            print(f"🔍 New state keys: {list(new_state.keys()) if hasattr(new_state, 'keys') else 'No keys'}")
+        except Exception as invoke_error:
+            print(f"❌ Error invoking graph: {invoke_error}")
+            import traceback
+            traceback.print_exc()
+            return _response(500, {'error': 'Workflow execution failed', 'message': str(invoke_error)})
 
         # Extract bot response from the state
         bot_response = new_state.get('bot_message') or ""
