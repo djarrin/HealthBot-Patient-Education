@@ -16,7 +16,7 @@ from langchain_core.tools.base import InjectedToolCallId
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import MessagesState, add_messages
-from langgraph_checkpoint_dynamodb import DynamoDBSaver
+from langgraph_checkpoint_dynamodb import DynamoDBSaver, DynamoDBConfig, DynamoDBTableConfig
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
 from tavily import TavilyClient
@@ -612,14 +612,22 @@ def build_graph(checkpointer=None):
 
     # Use provided checkpointer or default to DynamoDB
     if checkpointer is None:
-        # Use DynamoDB checkpointing with simple configuration
-        checkpoints_table_name = os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-v2-dev')
-        writes_table_name = f"{checkpoints_table_name}-writes"
-        
-        checkpointer = DynamoDBSaver(
-            checkpoints_table_name=checkpoints_table_name,
-            writes_table_name=writes_table_name
+        # Use DynamoDB checkpointing with custom configuration
+        table_config = DynamoDBTableConfig(
+            table_name=os.environ.get('SESSION_STATE_TABLE', 'healthbot-backend-session-state-v2-dev'),
+            billing_mode="PAY_PER_REQUEST",
+            enable_encryption=True,
+            enable_point_in_time_recovery=True,
+            ttl_days=None  # Disable TTL in langgraph since we handle it manually
         )
+        
+        config = DynamoDBConfig(
+            table_config=table_config,
+            region_name=os.environ.get('AWS_REGION', 'us-east-1')
+        )
+        
+        # Use deploy=False since we're managing the table via CloudFormation
+        checkpointer = DynamoDBSaver(config, deploy=False)
     
     return graph.compile(checkpointer=checkpointer)
 
