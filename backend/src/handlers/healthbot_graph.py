@@ -585,27 +585,8 @@ def tool_router(state: HealthBotState) -> str:
         print("🔧 Found tool calls, routing to tools")
         return "tools"  # Execute the tool
     
-    # Check if we have tool responses (ToolMessage) after the last tool call
-    tool_calls_found = False
-    tool_responses_found = False
-    
-    for i, message in enumerate(reversed(messages)):
-        if hasattr(message, 'tool_calls') and message.tool_calls:
-            tool_calls_found = True
-            print(f"🔧 Found tool calls at message {len(messages) - i - 1}")
-            break
-        elif isinstance(message, ToolMessage):
-            tool_responses_found = True
-            print(f"🔧 Found tool response at message {len(messages) - i - 1}")
-            break
-    
-    # If we found tool calls but no responses yet, execute tools
-    if tool_calls_found and not tool_responses_found:
-        print("🔧 Tool calls found but no responses, routing to tools")
-        return "tools"
-    
-    # If we have tool responses or no tool calls, proceed to summarize
-    print("📝 Proceeding to summarize")
+    # If no tool calls, proceed directly to summarize
+    print("📝 No tool calls found, proceeding to summarize")
     return "summarize"
 
 
@@ -625,18 +606,18 @@ def build_graph(checkpointer=None):
     # Add sequential flow edges
     graph.add_edge(START, "collect_topic")
     graph.add_edge("collect_topic", "search")
+    graph.add_edge("tools", "summarize")  # Tools always go to summarize after execution
     graph.add_edge("summarize", "present_summary")
     graph.add_edge("present_summary", "generate_question")
     graph.add_edge("generate_question", "evaluate")
     graph.add_edge("evaluate", "handle_restart")
     
-    # Add tool execution flow
+    # Add conditional edge for search to determine if tools are needed
     graph.add_conditional_edges(
         source="search",
         path=tool_router,
         path_map=["tools", "summarize"]
     )
-    graph.add_edge("tools", "search")  # Tools go back to search for potential more tool calls
     
     # Add conditional edges for user interaction points
     graph.add_conditional_edges(
