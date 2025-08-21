@@ -121,6 +121,7 @@ def web_search(question: str) -> Dict[str, Any]:
 
 
 def node_collect_topic(state: HealthBotState) -> HealthBotState:
+    print("📝 Node: collect_topic")
     messages = state["messages"]
     user_message = (state.get("user_message") or "").strip()
     
@@ -150,6 +151,7 @@ def node_collect_topic(state: HealthBotState) -> HealthBotState:
     )
     messages.append(human_message)
     
+    print(f"📝 Setting status to 'searching' for topic: {user_message}")
     return {
         **state,
         "topic": user_message,
@@ -161,6 +163,7 @@ def node_collect_topic(state: HealthBotState) -> HealthBotState:
 
 
 def node_search(state: HealthBotState) -> HealthBotState:
+    print("🔍 Node: search")
     messages = state["messages"]
     topic = state.get("topic", "").strip()
     
@@ -179,6 +182,7 @@ def node_search(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
+    print(f"🔍 Created tool call for topic: {topic}")
     return {
         **state,
         "status": "searching",  # This will trigger router to check for tool calls
@@ -188,6 +192,7 @@ def node_search(state: HealthBotState) -> HealthBotState:
 
 
 def node_summarize(state: HealthBotState) -> HealthBotState:
+    print("📋 Node: summarize")
     messages = state["messages"]
     topic = state.get("topic", "")
     
@@ -213,6 +218,8 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
                         })
             except Exception as e:
                 print(f"Error parsing search results: {e}")
+    
+    print(f"📋 Found {len(search_results)} search results")
     
     # If no results, provide fallback
     if not search_results:
@@ -245,6 +252,7 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
     try:
         response = llm.invoke(prompt.format_messages(topic=topic, sources=sources_block))
         summary = response.content
+        print("📋 Summary generated successfully")
     except Exception as e:
         print(f"Error calling LLM: {e}")
         summary = f"Unable to generate summary due to technical issues. Please try again later. Error: {str(e)}"
@@ -260,6 +268,7 @@ def node_summarize(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
+    print("📋 Setting status to 'presenting_summary'")
     return {
         **state,
         "search_results": search_results,
@@ -540,16 +549,28 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
 def router(state: HealthBotState) -> str:
     """Main router for user interaction points"""
     status = state.get("status", "collecting_topic")
+    user_message = (state.get("user_message") or "").strip().lower()
+    
+    print(f"🔀 Router called with status: {status}, user_message: '{user_message}'")
     
     if status == "awaiting_ready_for_quiz":
         # Continue only if user says ready
-        user = (state.get("user_message") or "").strip().lower()
-        return "generate_question" if user in {"ready", "r", "ok", "go", "yes", "y"} else END
+        if user_message in {"ready", "r", "ok", "go", "yes", "y"}:
+            print("✅ User ready for quiz, routing to generate_question")
+            return "generate_question"
+        else:
+            print("❌ User not ready, ending")
+            return END
     elif status == "ask_restart":
         # Proceed once user responds yes/no
-        user = (state.get("user_message") or "").strip().lower()
-        return "collect_topic" if user in {"yes", "y", "restart", "again"} else END
+        if user_message in {"yes", "y", "restart", "again"}:
+            print("✅ User wants to restart, routing to collect_topic")
+            return "collect_topic"
+        else:
+            print("❌ User wants to end, ending")
+            return END
     
+    print(f"⚠️  No matching status, ending")
     return END
 
 
@@ -557,15 +578,35 @@ def tool_router(state: HealthBotState) -> str:
     """Router specifically for handling tool execution flow"""
     messages = state.get("messages", [])
     
-    # Check if the last message has tool calls
+    print(f"🔧 Tool router called with {len(messages)} messages")
+    
+    # Check if the last message has tool calls that need to be executed
     if messages and hasattr(messages[-1], 'tool_calls') and messages[-1].tool_calls:
+        print("🔧 Found tool calls, routing to tools")
         return "tools"  # Execute the tool
     
-    # No tool calls, check if we have tool responses
-    if messages and any(isinstance(msg, ToolMessage) for msg in messages):
-        return "summarize"  # We have search results, proceed to summarize
+    # Check if we have tool responses (ToolMessage) after the last tool call
+    tool_calls_found = False
+    tool_responses_found = False
     
-    return "summarize"  # Default to summarize if no tool calls or responses
+    for i, message in enumerate(reversed(messages)):
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            tool_calls_found = True
+            print(f"🔧 Found tool calls at message {len(messages) - i - 1}")
+            break
+        elif isinstance(message, ToolMessage):
+            tool_responses_found = True
+            print(f"🔧 Found tool response at message {len(messages) - i - 1}")
+            break
+    
+    # If we found tool calls but no responses yet, execute tools
+    if tool_calls_found and not tool_responses_found:
+        print("🔧 Tool calls found but no responses, routing to tools")
+        return "tools"
+    
+    # If we have tool responses or no tool calls, proceed to summarize
+    print("📝 Proceeding to summarize")
+    return "summarize"
 
 
 def build_graph(checkpointer=None):
