@@ -9,7 +9,12 @@ from typing import Dict, Any
 from ..utils.secrets_manager import set_secrets_as_env_vars
 
 # LangGraph workflow
-from .healthbot_graph import GRAPH
+from .healthbot_graph import build_graph
+from .response_types import (
+    create_text_response,
+    create_confirmation_response,
+    create_multiple_choice_response
+)
 
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
@@ -100,10 +105,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Set up checkpointing configuration
         config = {"configurable": {"thread_id": session_id}}
         
+        # Create the graph once for this request
+        graph = build_graph()
+        
         # Check if this is a new session or continuing existing session
         try:
             # Try to get existing state
-            existing_state = GRAPH.get_state(config=config)
+            existing_state = graph.get_state(config=config)
             print(f"Found existing state for session {session_id}")
             
             # Convert state snapshot to dict if needed
@@ -117,7 +125,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             state_dict["user_message"] = message_content
             
             # Continue the workflow from existing state
-            new_state = GRAPH.invoke(state_dict, config=config)
+            new_state = graph.invoke(state_dict, config=config)
             print(f"Continued workflow, new state: {new_state}")
             
         except Exception as e:
@@ -130,11 +138,14 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
             
             # Run the workflow with new state
-            new_state = GRAPH.invoke(initial_state, config=config)
+            new_state = graph.invoke(initial_state, config=config)
             print(f"Started new workflow, new state: {new_state}")
 
         # Extract bot response from the state
         bot_response = new_state.get('bot_message') or ""
+        response_type = new_state.get('response_type', 'text')
+        multiple_choice = new_state.get('multiple_choice')
+        confirmation_prompt = new_state.get('confirmation_prompt')
 
         # Save bot message
         bot_message_id = str(uuid.uuid4())
@@ -150,15 +161,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'ttl': ttl_30d
             })
 
+        # Build response object based on type
+        if response_type == 'multiple_choice' and multiple_choice:
+            response_data = create_multiple_choice_response(
+                bot_response, bot_message_id, bot_timestamp, 
+                new_state.get('status'), multiple_choice
+            )
+        elif response_type == 'confirmation' and confirmation_prompt:
+            response_data = create_confirmation_response(
+                bot_response, bot_message_id, bot_timestamp,
+                new_state.get('status'), confirmation_prompt
+            )
+        else:
+            response_data = create_text_response(
+                bot_response, bot_message_id, bot_timestamp,
+                new_state.get('status')
+            )
+
         return _response(200, {
             'sessionId': session_id,
             'messageId': message_id,
-            'response': {
-                'content': bot_response,
-                'messageId': bot_message_id,
-                'timestamp': bot_timestamp,
-                'status': new_state.get('status')
-            }
+            'response': response_data
         })
 
     except Exception as e:
