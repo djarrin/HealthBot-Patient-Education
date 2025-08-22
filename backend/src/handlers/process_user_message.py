@@ -134,7 +134,36 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 state_dict = existing_state
             else:
                 print(f"🔍 Converting state to dict...")
-                state_dict = dict(existing_state)
+                print(f"🔍 Existing state type: {type(existing_state)}")
+                print(f"🔍 Existing state repr: {repr(existing_state)}")
+                
+                # Handle different state object types
+                if hasattr(existing_state, '__dict__'):
+                    state_dict = existing_state.__dict__
+                elif hasattr(existing_state, 'dict'):
+                    state_dict = existing_state.dict()
+                elif hasattr(existing_state, 'model_dump'):
+                    state_dict = existing_state.model_dump()
+                else:
+                    # Try to convert to dict, but handle the error gracefully
+                    try:
+                        state_dict = dict(existing_state)
+                    except (ValueError, TypeError) as conv_error:
+                        print(f"❌ Error converting state to dict: {conv_error}")
+                        print(f"🔍 Trying alternative conversion methods...")
+                        
+                        # If it's a sequence, try to convert it differently
+                        if hasattr(existing_state, '__iter__'):
+                            try:
+                                state_dict = {k: v for k, v in existing_state}
+                            except Exception:
+                                # Last resort: create a new state
+                                print(f"❌ Could not convert state, creating new state")
+                                state_dict = {"user_message": message_content, "status": "collecting_topic"}
+                        else:
+                            # Last resort: create a new state
+                            print(f"❌ Could not convert state, creating new state")
+                            state_dict = {"user_message": message_content, "status": "collecting_topic"}
             
             print(f"🔍 State dict keys: {list(state_dict.keys())}")
             print(f"🔍 Current status: {state_dict.get('status', 'unknown')}")
