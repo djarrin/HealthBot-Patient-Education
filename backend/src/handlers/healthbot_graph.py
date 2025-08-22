@@ -663,8 +663,8 @@ def build_graph(checkpointer=None):
             region_name=os.environ.get('AWS_REGION', 'us-east-1')
         )
         
-        # Use deploy=False since we're managing the table via CloudFormation
-        checkpointer = DynamoDBSaver(config, deploy=False)
+        # Use deploy=True to let LangGraph handle table configuration
+        checkpointer = DynamoDBSaver(config, deploy=True)
     
     return graph.compile(checkpointer=checkpointer)
 

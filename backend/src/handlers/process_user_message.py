@@ -129,6 +129,16 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f"🔍 Existing state type: {type(existing_state)}")
             print(f"🔍 Existing state keys: {list(existing_state.keys()) if hasattr(existing_state, 'keys') else 'No keys'}")
             
+            # Try to access state directly from the checkpointer
+            try:
+                checkpointer = graph.checkpointer
+                print(f"🔍 Checkpointer type: {type(checkpointer)}")
+                if hasattr(checkpointer, 'get'):
+                    direct_state = checkpointer.get(config)
+                    print(f"🔍 Direct state from checkpointer: {direct_state}")
+            except Exception as cp_error:
+                print(f"❌ Error accessing checkpointer directly: {cp_error}")
+            
             # Convert state snapshot to dict if needed
             if hasattr(existing_state, 'get'):
                 state_dict = existing_state
@@ -143,8 +153,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if existing_state.values:
                         state_dict = existing_state.values
                     else:
-                        print(f"❌ StateSnapshot has empty values, creating new state")
-                        state_dict = {"user_message": message_content, "status": "collecting_topic"}
+                        # Try to access the state differently
+                        print(f"🔍 StateSnapshot values empty, trying alternative access...")
+                        if hasattr(existing_state, 'get'):
+                            state_dict = existing_state.get('values', {})
+                        elif hasattr(existing_state, 'dict'):
+                            state_dict = existing_state.dict()
+                        else:
+                            print(f"❌ StateSnapshot has empty values, creating new state")
+                            state_dict = {"user_message": message_content, "status": "collecting_topic"}
                 elif hasattr(existing_state, '__dict__'):
                     state_dict = existing_state.__dict__
                 elif hasattr(existing_state, 'dict'):
@@ -180,17 +197,17 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Continue the workflow from existing state
             print("🔄 Invoking graph with existing state...")
-            print(f"🔍 State dict before invoke: {state_dict}")
+            print(f"🔍 State dict has {len(state_dict)} keys")
             new_state = graph.invoke(state_dict, config=config)
             print(f"✅ Continued workflow, new state status: {new_state.get('status', 'unknown')}")
-            print(f"🔍 New state after invoke: {new_state}")
+            print(f"🔍 New state has {len(new_state)} keys")
             
             # Debug: Check if the state was stored
             try:
                 stored_state = graph.get_state(config=config)
-                print(f"🔍 Stored state after invoke: {stored_state}")
+                print(f"🔍 Stored state retrieved successfully")
                 if hasattr(stored_state, 'values'):
-                    print(f"🔍 Stored state values: {stored_state.values}")
+                    print(f"🔍 Stored state has {len(stored_state.values)} keys")
             except Exception as store_error:
                 print(f"❌ Error checking stored state: {store_error}")
             
@@ -199,7 +216,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print(f"🔍 State error type: {type(state_error)}")
             import traceback
             traceback.print_exc()
-            raise state_error
+            # Don't raise the error, fall back to creating new workflow
+            print(f"🔄 Falling back to creating new workflow due to state error")
             
     except Exception as e:
         print(f"❌ No existing state found for session {session_id}, starting new workflow: {str(e)}")
@@ -215,11 +233,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Run the workflow with new state
         print("🔄 Invoking graph with new state...")
-        print(f"🔍 Initial state: {initial_state}")
+        print(f"🔍 Initial state has {len(initial_state)} keys")
         try:
             new_state = graph.invoke(initial_state, config=config)
             print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
-            print(f"🔍 New state keys: {list(new_state.keys()) if hasattr(new_state, 'keys') else 'No keys'}")
+            print(f"🔍 New state has {len(new_state)} keys")
         except Exception as invoke_error:
             print(f"❌ Error invoking graph: {invoke_error}")
             import traceback
