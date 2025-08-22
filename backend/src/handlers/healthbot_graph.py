@@ -284,7 +284,28 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     print("📄 Node: present_summary")
     messages = state["messages"]
     summary = state.get("summary", "")
+    user_message = (state.get("user_message") or "").strip()
     
+    # Check if we have a user message (continuing from previous state)
+    if user_message:
+        print(f"📄 Continuing from presenting_summary with user message: '{user_message}'")
+        # Create human message with user's response
+        human_message = HumanMessage(
+            content=user_message,
+            name="patient",
+            id=str(uuid.uuid4())
+        )
+        messages.append(human_message)
+        
+        # Route to generate_question since user is ready
+        print("📄 User is ready for quiz, routing to generate_question")
+        return {
+            **state,
+            "status": "generate_question",
+            "user_message": ""  # Clear consumed input
+        }
+    
+    # Original logic for first time presenting summary
     # Create confirmation prompt for the frontend
     confirmation_prompt: ConfirmationPrompt = {
         "message": "When you're ready for a quick comprehension check, click the button below.",
@@ -413,6 +434,7 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
 
 
 def node_evaluate(state: HealthBotState) -> HealthBotState:
+    print("📊 Node: evaluate")
     messages = state["messages"]
     user_message = (state.get("user_message") or "").strip().upper()
     summary = state.get("summary", "")
@@ -497,6 +519,7 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
 
 
 def node_handle_restart(state: HealthBotState) -> HealthBotState:
+    print("🔄 Node: handle_restart")
     messages = state["messages"]
     user_message = (state.get("user_message") or "").strip().lower()
     
@@ -599,6 +622,28 @@ def router(state: HealthBotState) -> str:
     return END
 
 
+def entry_router(state: HealthBotState) -> str:
+    """Router to determine which node to start from based on current status"""
+    status = state.get("status", "collecting_topic")
+    user_message = (state.get("user_message") or "").strip()
+    
+    print(f"🚪 Entry router called with status: {status}, user_message: '{user_message}'")
+    
+    # If we have a status and user message, route based on status
+    if status == "presenting_summary" and user_message:
+        print("🔄 Continuing from presenting_summary")
+        return "present_summary"
+    elif status == "ask_restart" and user_message:
+        print("🔄 Continuing from ask_restart")
+        return "handle_restart"
+    elif status == "awaiting_answer" and user_message:
+        print("🔄 Continuing from awaiting_answer")
+        return "evaluate"
+    else:
+        print("🆕 Starting new workflow from collect_topic")
+        return "collect_topic"
+
+
 def tool_router(state: HealthBotState) -> str:
     """Router specifically for handling tool execution flow"""
     messages = state.get("messages", [])
@@ -628,8 +673,14 @@ def build_graph(checkpointer=None):
     graph.add_node("evaluate", node_evaluate)
     graph.add_node("handle_restart", node_handle_restart)
 
+    # Add conditional entry edge to route based on current status
+    graph.add_conditional_edges(
+        source=START,
+        path=entry_router,
+        path_map=["collect_topic", "present_summary", "handle_restart", "evaluate"]
+    )
+    
     # Add sequential flow edges
-    graph.add_edge(START, "collect_topic")
     graph.add_edge("collect_topic", "search")
     graph.add_edge("tools", "summarize")  # Tools always go to summarize after execution
     graph.add_edge("summarize", "present_summary")
