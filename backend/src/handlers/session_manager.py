@@ -4,10 +4,32 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any
 
-# Initialize AWS clients
-dynamodb = boto3.resource('dynamodb')
-chat_sessions_table = dynamodb.Table(os.environ['CHAT_SESSIONS_TABLE'])
-user_messages_table = dynamodb.Table(os.environ['USER_MESSAGES_TABLE'])
+# Initialize AWS clients lazily to avoid import-time region issues
+_dynamodb = None
+_chat_sessions_table = None
+_user_messages_table = None
+
+def _get_dynamodb():
+    """Get DynamoDB resource with proper region configuration."""
+    global _dynamodb
+    if _dynamodb is None:
+        region = os.environ.get('AWS_REGION', 'us-east-1')
+        _dynamodb = boto3.resource('dynamodb', region_name=region)
+    return _dynamodb
+
+def _get_chat_sessions_table():
+    """Get chat sessions table."""
+    global _chat_sessions_table
+    if _chat_sessions_table is None:
+        _chat_sessions_table = _get_dynamodb().Table(os.environ['CHAT_SESSIONS_TABLE'])
+    return _chat_sessions_table
+
+def _get_user_messages_table():
+    """Get user messages table."""
+    global _user_messages_table
+    if _user_messages_table is None:
+        _user_messages_table = _get_dynamodb().Table(os.environ['USER_MESSAGES_TABLE'])
+    return _user_messages_table
 
 def generate_session_id() -> str:
     """Generate a new session ID."""
@@ -26,7 +48,7 @@ def upsert_chat_session(session_id: str, user_id: str, user_email: str) -> None:
     now_iso = get_current_timestamp()
     ttl_30d = get_ttl_timestamp()
     
-    chat_sessions_table.update_item(
+    _get_chat_sessions_table().update_item(
         Key={'sessionId': session_id},
         UpdateExpression='SET userId=:uid, userEmail=:uem, lastActivity=:la, messageCount=if_not_exists(messageCount,:z)+:one, #ttl=:ttl',
         ExpressionAttributeValues={
@@ -48,7 +70,7 @@ def save_user_message(session_id: str, user_id: str, message_content: str) -> st
     now_iso = get_current_timestamp()
     ttl_30d = get_ttl_timestamp()
     
-    user_messages_table.put_item(Item={
+    _get_user_messages_table().put_item(Item={
         'sessionId': session_id,
         'timestamp': now_iso,
         'messageId': message_id,
@@ -69,7 +91,7 @@ def save_bot_message(session_id: str, user_id: str, bot_response: str) -> Dict[s
     bot_timestamp = get_current_timestamp()
     ttl_30d = get_ttl_timestamp()
     
-    user_messages_table.put_item(Item={
+    _get_user_messages_table().put_item(Item={
         'sessionId': session_id,
         'timestamp': bot_timestamp,
         'messageId': bot_message_id,
