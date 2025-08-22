@@ -4,7 +4,7 @@ from typing import Dict, Any
 # Import our modular components
 from .request_validator import validate_request, validate_message_body, validate_environment
 from .session_manager import generate_session_id, upsert_chat_session, save_user_message, save_bot_message
-from .workflow_engine import execute_workflow
+from .workflow_engine import execute_workflow, setup_environment
 from .response_builder import (
     extract_response_data, 
     build_response_data, 
@@ -36,7 +36,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             print("✅ Health check request")
             return _response(200, create_health_response())
         
-        # Validate environment
+        # Set up environment and load secrets FIRST
+        print("🔐 Setting up environment and loading secrets...")
+        setup_environment()
+        
+        # Validate environment AFTER secrets are loaded
         print("🔍 Validating environment...")
         env_valid, env_error = validate_environment()
         print(f"🔍 Environment validation: valid={env_valid}, error={env_error}")
@@ -75,10 +79,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         message_id = save_user_message(session_id, user_id, message_content)
         print(f"✅ Session managed, message ID: {message_id}")
         
-        # Execute workflow
+        # Execute workflow (without setup_environment since we already did it)
         print("🔄 Executing workflow...")
         try:
-            new_state = execute_workflow(session_id, message_content)
+            new_state = execute_workflow(session_id, message_content, skip_environment_setup=True)
             print(f"✅ Workflow executed successfully")
         except Exception as workflow_error:
             print(f"❌ Workflow execution failed: {workflow_error}")

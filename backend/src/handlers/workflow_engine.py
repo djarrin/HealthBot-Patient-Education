@@ -26,15 +26,21 @@ def create_initial_state(message_content: str) -> Dict[str, Any]:
         "status": "collecting_topic"
     }
 
-def execute_workflow(session_id: str, message_content: str) -> Dict[str, Any]:
+def execute_workflow(session_id: str, message_content: str, skip_environment_setup: bool = False) -> Dict[str, Any]:
     """
     Execute the LangGraph workflow.
+    
+    Args:
+        session_id: The session ID for the workflow
+        message_content: The user's message content
+        skip_environment_setup: If True, skip setting up environment (useful when already done)
     
     Returns:
         The final state from the workflow execution
     """
-    # Set up environment
-    setup_environment()
+    # Set up environment (unless skipped)
+    if not skip_environment_setup:
+        setup_environment()
     
     # Create workflow configuration
     config = create_workflow_config(session_id)
