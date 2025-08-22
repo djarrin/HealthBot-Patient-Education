@@ -137,8 +137,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 print(f"🔍 Existing state type: {type(existing_state)}")
                 print(f"🔍 Existing state repr: {repr(existing_state)}")
                 
-                # Handle different state object types
-                if hasattr(existing_state, '__dict__'):
+                # Handle StateSnapshot objects from LangGraph
+                if hasattr(existing_state, 'values'):
+                    print(f"🔍 Found StateSnapshot with values: {existing_state.values}")
+                    if existing_state.values:
+                        state_dict = existing_state.values
+                    else:
+                        print(f"❌ StateSnapshot has empty values, creating new state")
+                        state_dict = {"user_message": message_content, "status": "collecting_topic"}
+                elif hasattr(existing_state, '__dict__'):
                     state_dict = existing_state.__dict__
                 elif hasattr(existing_state, 'dict'):
                     state_dict = existing_state.dict()
@@ -173,8 +180,19 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Continue the workflow from existing state
             print("🔄 Invoking graph with existing state...")
+            print(f"🔍 State dict before invoke: {state_dict}")
             new_state = graph.invoke(state_dict, config=config)
             print(f"✅ Continued workflow, new state status: {new_state.get('status', 'unknown')}")
+            print(f"🔍 New state after invoke: {new_state}")
+            
+            # Debug: Check if the state was stored
+            try:
+                stored_state = graph.get_state(config=config)
+                print(f"🔍 Stored state after invoke: {stored_state}")
+                if hasattr(stored_state, 'values'):
+                    print(f"🔍 Stored state values: {stored_state.values}")
+            except Exception as store_error:
+                print(f"❌ Error checking stored state: {store_error}")
             
         except Exception as state_error:
             print(f"❌ Error getting existing state: {state_error}")
