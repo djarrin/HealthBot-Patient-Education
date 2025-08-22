@@ -419,12 +419,15 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
     try:
         response = llm.invoke(prompt.format_messages(summary=summary, topic=topic))
         raw = response.content
+        print(f"🔍 LLM response: {raw[:200]}...")
     except Exception as e:
         print(f"Error calling LLM in generate_question: {e}")
         raw = '{"question": "What is one key point from the summary?", "choices": ["A short statement that aligns with the summary", "An unrelated claim", "A contradictory claim", "An extreme or unsafe recommendation"], "correct_letter": "A"}'
     
     # Parse the JSON response
     try:
+        if not raw or not raw.strip():
+            raise ValueError("Empty response from LLM")
         parsed = json.loads(raw)
         question_text = parsed.get("question", "")
         choices = parsed.get("choices", [])
@@ -651,6 +654,16 @@ def router(state: HealthBotState) -> str:
             print("⏸️  Waiting for user response at presenting_summary")
             return END
     
+    elif status == "present_question":
+        # If user has provided a quiz answer, transition to evaluate
+        if user_message in {"a", "b", "c", "d"}:
+            print("✅ User provided quiz answer, routing to evaluate")
+            return "evaluate"
+        else:
+            # Wait for user response
+            print("⏸️  Waiting for user response at present_question")
+            return END
+    
     elif status == "ask_restart":
         # Proceed once user responds yes/no
         if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
@@ -739,7 +752,6 @@ def build_graph(checkpointer=None):
     graph.add_edge("tools", "summarize")  # Tools always go to summarize after execution
     graph.add_edge("summarize", "present_summary")
     graph.add_edge("generate_question", "present_question") # Generate question leads to present question
-    graph.add_edge("present_question", "evaluate") # Present question leads to evaluate
     graph.add_edge("evaluate", "handle_restart")
     
     # Add conditional edges for user interaction points
@@ -747,6 +759,12 @@ def build_graph(checkpointer=None):
         source="present_summary",
         path=router,
         path_map=["generate_question", END]
+    )
+    
+    graph.add_conditional_edges(
+        source="present_question",
+        path=router,
+        path_map=["evaluate", END]
     )
     
     graph.add_conditional_edges(
