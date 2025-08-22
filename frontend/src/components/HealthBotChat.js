@@ -201,7 +201,7 @@ export default function HealthBotChat() {
     });
 
     try {
-      const response = await sendMessageToAPI(`My answer: ${quizAnswer}`);
+      const response = await sendMessageToAPI(quizAnswer);
       
       setShowQuiz(false);
       setCurrentStep('quiz-complete');

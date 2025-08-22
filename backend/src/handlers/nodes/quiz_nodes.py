@@ -120,7 +120,7 @@ def node_present_question(state: HealthBotState) -> HealthBotState:
     
     # Check if we have a user message (continuing from previous state)
     if user_message:
-        print(f"❓ Continuing from present_question with user answer: '{user_message}'")
+        print(f"❓ Processing user answer: '{user_message}'")
         # Create human message with user's answer
         human_message = HumanMessage(
             content=user_message,
@@ -129,11 +129,10 @@ def node_present_question(state: HealthBotState) -> HealthBotState:
         )
         messages.append(human_message)
         
-        # Route to evaluate since user provided an answer
-        print("❓ User provided answer, routing to evaluate")
+        # Node just processes the input - router will handle routing
+        print("❓ User provided answer, clearing user_message and maintaining present_question status")
         return {
             **state,
-            "status": "evaluate",
             "user_message": ""  # Clear consumed input
         }
     

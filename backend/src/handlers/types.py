@@ -22,10 +22,10 @@ class HealthBotState(MessagesState):
         "searching", 
         "summarizing",
         "presenting_summary",
-        "awaiting_ready_for_quiz",
-        "generating_question",
+        "generate_question",
+        "present_question",
         "awaiting_answer",
-        "evaluating",
+        "evaluate",
         "ask_restart",
         "ended",
     ]

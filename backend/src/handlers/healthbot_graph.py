@@ -47,7 +47,7 @@ def build_graph(checkpointer=None):
     graph.add_conditional_edges(
         source="present_summary",
         path=router,
-        path_map=["generate_question", END]
+        path_map=["generate_question", "collect_topic", END]
     )
     
     graph.add_conditional_edges(
@@ -81,7 +81,9 @@ def build_graph(checkpointer=None):
         # Use deploy=True to let LangGraph handle table configuration
         checkpointer = DynamoDBSaver(config, deploy=True)
     
-    return graph.compile(checkpointer=checkpointer)
+    compiled_graph = graph.compile(checkpointer=checkpointer)
+    print("✅ Graph compiled successfully with checkpointer")
+    return compiled_graph
 
 
 # Export the build_graph function for use in other modules

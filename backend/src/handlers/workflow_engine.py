@@ -17,14 +17,32 @@ def setup_environment() -> None:
 
 def create_workflow_config(session_id: str) -> Dict[str, Any]:
     """Create the workflow configuration for LangGraph."""
-    return {"configurable": {"thread_id": session_id}}
+    config = {"configurable": {"thread_id": session_id}}
+    print(f"🔍 Created workflow config with thread_id: {session_id}")
+    return config
 
 def create_initial_state(message_content: str) -> Dict[str, Any]:
     """Create the initial state for the workflow."""
-    return {
+    initial_state = {
         "user_message": message_content,
-        "status": "collecting_topic"
+        "status": "collecting_topic",
+        "messages": [],
+        "topic": "",
+        "search_results": [],
+        "summary": "",
+        "citations": [],
+        "question": "",
+        "correct_answer": "",
+        "multiple_choice": None,
+        "user_answer": "",
+        "grade": "",
+        "explanation": "",
+        "bot_message": "",
+        "response_type": "text",
+        "confirmation_prompt": None
     }
+    print(f"🔍 Created initial state with user_message: '{message_content}'")
+    return initial_state
 
 def execute_workflow(session_id: str, message_content: str, skip_environment_setup: bool = False) -> Dict[str, Any]:
     """
@@ -61,9 +79,12 @@ def execute_workflow(session_id: str, message_content: str, skip_environment_set
     
     # Execute workflow
     print("🔄 Invoking graph...")
+    print(f"🔍 Initial state: {initial_state}")
+    print(f"🔍 Config: {config}")
     try:
         new_state = graph.invoke(initial_state, config=config)
         print(f"✅ Workflow completed, final status: {new_state.get('status', 'unknown')}")
+        print(f"🔍 Final state keys: {list(new_state.keys())}")
         return new_state
     except Exception as invoke_error:
         print(f"❌ Error invoking graph: {invoke_error}")

@@ -103,7 +103,7 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     
     # Check if we have a user message (continuing from previous state)
     if user_message:
-        print(f"📄 Continuing from presenting_summary with user message: '{user_message}'")
+        print(f"📄 Processing user response: '{user_message}'")
         # Create human message with user's response
         human_message = HumanMessage(
             content=user_message,
@@ -112,12 +112,11 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
         )
         messages.append(human_message)
         
-        # Route to generate_question since user is ready
-        print("📄 User is ready for quiz, routing to generate_question")
+        # Node just processes the input and sets status - router will handle routing
+        print("📄 User responded, clearing user_message and maintaining presenting_summary status")
         return {
             **state,
-            "status": "generate_question"
-            # Don't clear user_message yet - it will be cleared after question generation
+            "user_message": ""  # Clear consumed input
         }
     
     # Original logic for first time presenting summary

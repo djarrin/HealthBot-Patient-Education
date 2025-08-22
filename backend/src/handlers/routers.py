@@ -18,13 +18,14 @@ def router(state: HealthBotState) -> str:
             print("❌ User not ready for quiz, ending session")
             return END
         else:
-            # Wait for user response
-            print("⏸️  Waiting for user response at presenting_summary")
-            return END
+            # User sent a new topic, route to collect_topic
+            print("🔄 User sent new topic, routing to collect_topic")
+            return "collect_topic"
     
     elif status == "present_question":
         # If user has provided a quiz answer, transition to evaluate
-        if user_message in {"a", "b", "c", "d"}:
+        # Frontend sends just the letter (A, B, C, or D)
+        if user_message.upper() in {"A", "B", "C", "D"}:
             print("✅ User provided quiz answer, routing to evaluate")
             return "evaluate"
         else:
@@ -35,15 +36,18 @@ def router(state: HealthBotState) -> str:
     elif status == "ask_restart":
         # Proceed once user responds yes/no
         if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
-            print("✅ User wants to restart, routing to collect_topic")
-            return "collect_topic"
+            print("✅ User wants to restart, routing to handle_restart")
+            return "handle_restart"
         elif user_message in {"no", "n", "end", "exit", "quit", "stop"}:
-            print("❌ User wants to end, ending session")
-            return END
+            print("❌ User wants to end, routing to handle_restart")
+            return "handle_restart"
         else:
             # Wait for user response
             print("⏸️  Waiting for user response at ask_restart")
             return END
+    elif status == "ended":
+        print("✅ Session ended")
+        return END
     
     print(f"⚠️  No matching status, ending")
     return END
@@ -58,20 +62,38 @@ def entry_router(state: HealthBotState) -> str:
     
     # If we have a status and user message, route based on status
     if status == "presenting_summary" and user_message:
-        print("🔄 Continuing from presenting_summary")
-        return "present_summary"
+        # Check if user is ready for quiz
+        if user_message.lower() in {"ready", "r", "ok", "go", "yes", "y", "i'm ready", "ready for quiz"}:
+            print("🔄 User ready for quiz, routing to generate_question")
+            return "generate_question"
+        else:
+            print("🔄 Continuing from presenting_summary")
+            return "present_summary"
     elif status == "generate_question" and user_message:
         print("🔄 Continuing from generate_question")
         return "generate_question"
     elif status == "present_question" and user_message:
-        print("🔄 Continuing from present_question")
-        return "present_question"
+        # Check if user provided a quiz answer (just the letter)
+        if user_message.upper() in {"A", "B", "C", "D"}:
+            print("🔄 User provided quiz answer, routing to evaluate")
+            return "evaluate"
+        else:
+            print("🔄 Continuing from present_question")
+            return "present_question"
     elif status == "ask_restart" and user_message:
         print("🔄 Continuing from ask_restart")
         return "handle_restart"
+    elif status == "ended":
+        print("🔄 Session ended, starting new workflow")
+        return "collect_topic"
     elif status == "awaiting_answer" and user_message:
-        print("🔄 Continuing from awaiting_answer")
-        return "evaluate"
+        # Check if user provided a quiz answer (just the letter)
+        if user_message.upper() in {"A", "B", "C", "D"}:
+            print("🔄 User provided quiz answer, routing to evaluate")
+            return "evaluate"
+        else:
+            print("🔄 Invalid answer format, continuing from awaiting_answer")
+            return "present_question"
     else:
         print("🆕 Starting new workflow from collect_topic")
         return "collect_topic"
