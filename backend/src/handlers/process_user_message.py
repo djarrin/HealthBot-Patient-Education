@@ -250,6 +250,11 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         multiple_choice = new_state.get('multiple_choice')
         confirmation_prompt = new_state.get('confirmation_prompt')
 
+        print(f"🔍 Bot response: {bot_response[:100]}...")
+        print(f"🔍 Response type: {response_type}")
+        print(f"🔍 Multiple choice: {multiple_choice is not None}")
+        print(f"🔍 Confirmation prompt: {confirmation_prompt is not None}")
+
         # Save bot message
         bot_message_id = str(uuid.uuid4())
         bot_timestamp = datetime.now(timezone.utc).isoformat()
@@ -280,6 +285,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 bot_response, bot_message_id, bot_timestamp,
                 new_state.get('status')
             )
+
+        print(f"🔍 Response data keys: {list(response_data.keys())}")
+        print(f"🔍 About to return response...")
 
         return _response(200, {
             'sessionId': session_id,
