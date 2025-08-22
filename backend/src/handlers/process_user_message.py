@@ -126,68 +126,15 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             existing_state = graph.get_state(config=config)
             print(f"✅ Found existing state for session {session_id}")
-            print(f"🔍 Existing state type: {type(existing_state)}")
-            print(f"🔍 Existing state keys: {list(existing_state.keys()) if hasattr(existing_state, 'keys') else 'No keys'}")
-            
-            # Try to access state directly from the checkpointer
-            try:
-                checkpointer = graph.checkpointer
-                print(f"🔍 Checkpointer type: {type(checkpointer)}")
-                if hasattr(checkpointer, 'get'):
-                    direct_state = checkpointer.get(config)
-                    print(f"🔍 Direct state from checkpointer: {direct_state}")
-            except Exception as cp_error:
-                print(f"❌ Error accessing checkpointer directly: {cp_error}")
             
             # Convert state snapshot to dict if needed
-            if hasattr(existing_state, 'get'):
+            if hasattr(existing_state, 'values'):
+                state_dict = existing_state.values
+            elif hasattr(existing_state, 'get'):
                 state_dict = existing_state
             else:
-                print(f"🔍 Converting state to dict...")
-                print(f"🔍 Existing state type: {type(existing_state)}")
-                print(f"🔍 Existing state repr: {repr(existing_state)}")
-                
-                # Handle StateSnapshot objects from LangGraph
-                if hasattr(existing_state, 'values'):
-                    print(f"🔍 Found StateSnapshot with values: {existing_state.values}")
-                    if existing_state.values:
-                        state_dict = existing_state.values
-                    else:
-                        # Try to access the state differently
-                        print(f"🔍 StateSnapshot values empty, trying alternative access...")
-                        if hasattr(existing_state, 'get'):
-                            state_dict = existing_state.get('values', {})
-                        elif hasattr(existing_state, 'dict'):
-                            state_dict = existing_state.dict()
-                        else:
-                            print(f"❌ StateSnapshot has empty values, creating new state")
-                            state_dict = {"user_message": message_content, "status": "collecting_topic"}
-                elif hasattr(existing_state, '__dict__'):
-                    state_dict = existing_state.__dict__
-                elif hasattr(existing_state, 'dict'):
-                    state_dict = existing_state.dict()
-                elif hasattr(existing_state, 'model_dump'):
-                    state_dict = existing_state.model_dump()
-                else:
-                    # Try to convert to dict, but handle the error gracefully
-                    try:
-                        state_dict = dict(existing_state)
-                    except (ValueError, TypeError) as conv_error:
-                        print(f"❌ Error converting state to dict: {conv_error}")
-                        print(f"🔍 Trying alternative conversion methods...")
-                        
-                        # If it's a sequence, try to convert it differently
-                        if hasattr(existing_state, '__iter__'):
-                            try:
-                                state_dict = {k: v for k, v in existing_state}
-                            except Exception:
-                                # Last resort: create a new state
-                                print(f"❌ Could not convert state, creating new state")
-                                state_dict = {"user_message": message_content, "status": "collecting_topic"}
-                        else:
-                            # Last resort: create a new state
-                            print(f"❌ Could not convert state, creating new state")
-                            state_dict = {"user_message": message_content, "status": "collecting_topic"}
+                print(f"❌ Could not extract state, creating new state")
+                state_dict = {"user_message": message_content, "status": "collecting_topic"}
             
             print(f"🔍 State dict keys: {list(state_dict.keys())}")
             print(f"🔍 Current status: {state_dict.get('status', 'unknown')}")
@@ -197,52 +144,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             # Continue the workflow from existing state
             print("🔄 Invoking graph with existing state...")
-            print(f"🔍 State dict has {len(state_dict)} keys")
             new_state = graph.invoke(state_dict, config=config)
             print(f"✅ Continued workflow, new state status: {new_state.get('status', 'unknown')}")
-            print(f"🔍 New state has {len(new_state)} keys")
-            
-            # Debug: Check if the state was stored
-            try:
-                stored_state = graph.get_state(config=config)
-                print(f"🔍 Stored state retrieved successfully")
-                if hasattr(stored_state, 'values'):
-                    print(f"🔍 Stored state has {len(stored_state.values)} keys")
-            except Exception as store_error:
-                print(f"❌ Error checking stored state: {store_error}")
             
         except Exception as state_error:
             print(f"❌ Error getting existing state: {state_error}")
-            print(f"🔍 State error type: {type(state_error)}")
-            import traceback
-            traceback.print_exc()
-            # Don't raise the error, fall back to creating new workflow
-            print(f"🔄 Falling back to creating new workflow due to state error")
+            print(f"🔄 Creating new workflow due to state error")
             
-    except Exception as e:
-        print(f"❌ No existing state found for session {session_id}, starting new workflow: {str(e)}")
-        print(f"🔍 Exception type: {type(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Create initial state for new session
-        initial_state = {
-            "user_message": message_content,
-            "status": "collecting_topic"
-        }
-        
-        # Run the workflow with new state
-        print("🔄 Invoking graph with new state...")
-        print(f"🔍 Initial state has {len(initial_state)} keys")
-        try:
-            new_state = graph.invoke(initial_state, config=config)
-            print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
-            print(f"🔍 New state has {len(new_state)} keys")
-        except Exception as invoke_error:
-            print(f"❌ Error invoking graph: {invoke_error}")
-            import traceback
-            traceback.print_exc()
-            return _response(500, {'error': 'Workflow execution failed', 'message': str(invoke_error)})
+            # Create initial state for new session
+            initial_state = {
+                "user_message": message_content,
+                "status": "collecting_topic"
+            }
+            
+            # Run the workflow with new state
+            print("🔄 Invoking graph with new state...")
+            try:
+                new_state = graph.invoke(initial_state, config=config)
+                print(f"✅ Started new workflow, new state status: {new_state.get('status', 'unknown')}")
+            except Exception as invoke_error:
+                print(f"❌ Error invoking graph: {invoke_error}")
+                import traceback
+                traceback.print_exc()
+                return _response(500, {'error': 'Workflow execution failed', 'message': str(invoke_error)})
 
         # Extract bot response from the state
         bot_response = new_state.get('bot_message') or ""

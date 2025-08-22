@@ -305,21 +305,23 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     print("📄 Setting status to 'presenting_summary' to pause for user interaction")
     return {
         **state, 
-        "status": "presenting_summary",  # Changed from "awaiting_ready_for_quiz"
-        "bot_message": full_message,  # Include the full message with summary
+        "status": "presenting_summary",
+        "bot_message": full_message,
         "response_type": "confirmation",
         "confirmation_prompt": confirmation_prompt
     }
 
 
 def node_generate_question(state: HealthBotState) -> HealthBotState:
+    print("❓ Node: generate_question")
     messages = state["messages"]
     summary = state.get("summary", "")
     topic = state.get("topic", "")
+    user_message = (state.get("user_message") or "").strip()
     
-    # Create human message to trigger question generation
+    # Create human message with user's confirmation
     human_message = HumanMessage(
-        content="ready",
+        content=user_message or "ready",
         name="patient",
         id=str(uuid.uuid4())
     )
@@ -506,7 +508,7 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
     )
     messages.append(human_message)
     
-    if user_message in {"yes", "y", "restart", "again"}:
+    if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
         # Create AI message for restart
         ai_message = AIMessage(
             content="Great! What health topic or medical condition would you like to learn about?",
@@ -535,7 +537,7 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
             "explanation": "",
             "confirmation_prompt": None
         }
-    else:
+    elif user_message in {"no", "n", "end", "exit", "quit", "stop"}:
         # Create AI message for session end
         ai_message = AIMessage(
             content="Thanks for learning with HealthBot! Take care and stay healthy! 👋",
@@ -550,6 +552,14 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
             "bot_message": "Thanks for learning with HealthBot! Take care and stay healthy! 👋",
             "response_type": "text"
         }
+    else:
+        # Wait for user response
+        return {
+            **state,
+            "status": "ask_restart",
+            "bot_message": "I didn't understand. Would you like to learn about another health topic? Reply 'yes' or 'no'.",
+            "response_type": "text"
+        }
 
 
 def router(state: HealthBotState) -> str:
@@ -560,30 +570,29 @@ def router(state: HealthBotState) -> str:
     print(f"🔀 Router called with status: {status}, user_message: '{user_message}'")
     
     if status == "presenting_summary":
-        # If user has responded, transition to generate_question
-        if user_message:
-            print("✅ User responded after summary, routing to generate_question")
-            return "generate_question"
-        else:
-            # Always pause here to show summary to user
-            print("⏸️  Pausing at presenting_summary to show summary to user")
-            return END
-    
-    if status == "awaiting_ready_for_quiz":
-        # Continue only if user says ready
-        if user_message in {"ready", "r", "ok", "go", "yes", "y"}:
+        # If user has responded with ready/confirmation, transition to generate_question
+        if user_message in {"ready", "r", "ok", "go", "yes", "y", "i'm ready", "ready for quiz"}:
             print("✅ User ready for quiz, routing to generate_question")
             return "generate_question"
-        else:
-            print("❌ User not ready, ending")
+        elif user_message in {"no", "n", "not ready", "not yet", "skip"}:
+            print("❌ User not ready for quiz, ending session")
             return END
+        else:
+            # Wait for user response
+            print("⏸️  Waiting for user response at presenting_summary")
+            return END
+    
     elif status == "ask_restart":
         # Proceed once user responds yes/no
-        if user_message in {"yes", "y", "restart", "again"}:
+        if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
             print("✅ User wants to restart, routing to collect_topic")
             return "collect_topic"
+        elif user_message in {"no", "n", "end", "exit", "quit", "stop"}:
+            print("❌ User wants to end, ending session")
+            return END
         else:
-            print("❌ User wants to end, ending")
+            # Wait for user response
+            print("⏸️  Waiting for user response at ask_restart")
             return END
     
     print(f"⚠️  No matching status, ending")
