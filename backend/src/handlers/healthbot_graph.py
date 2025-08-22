@@ -333,12 +333,66 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     }
 
 
+def node_present_question(state: HealthBotState) -> HealthBotState:
+    """Present the generated question to the user and wait for their answer"""
+    print("❓ Node: present_question")
+    messages = state["messages"]
+    question = state.get("question", "")
+    multiple_choice = state.get("multiple_choice", {})
+    user_message = (state.get("user_message") or "").strip()
+    
+    # Check if we have a user message (continuing from previous state)
+    if user_message:
+        print(f"❓ Continuing from present_question with user answer: '{user_message}'")
+        # Create human message with user's answer
+        human_message = HumanMessage(
+            content=user_message,
+            name="patient",
+            id=str(uuid.uuid4())
+        )
+        messages.append(human_message)
+        
+        # Route to evaluate since user provided an answer
+        print("❓ User provided answer, routing to evaluate")
+        return {
+            **state,
+            "status": "evaluate",
+            "user_message": ""  # Clear consumed input
+        }
+    
+    # Original logic for first time presenting question
+    # Create AI message with the question
+    ai_message = AIMessage(
+        content="Here's a quick comprehension check:\n\n" + question,
+        name="healthbot",
+        id=str(uuid.uuid4())
+    )
+    messages.append(ai_message)
+    
+    print("❓ Setting status to 'awaiting_answer' to wait for user response")
+    return {
+        **state,
+        "status": "awaiting_answer",
+        "bot_message": "Here's a quick comprehension check:\n\n" + question,
+        "response_type": "multiple_choice"
+    }
+
+
 def node_generate_question(state: HealthBotState) -> HealthBotState:
     print("❓ Node: generate_question")
     messages = state["messages"]
     summary = state.get("summary", "")
     topic = state.get("topic", "")
     user_message = (state.get("user_message") or "").strip()
+    
+    # Check if we already have a question (continuing from previous state)
+    existing_question = state.get("question", "")
+    if existing_question:
+        print("❓ Continuing with existing question")
+        return {
+            **state,
+            "status": "present_question"
+        }
     
     # Create human message with user's confirmation
     human_message = HumanMessage(
@@ -414,22 +468,12 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         
         formatted_question = question_text + "\n\n" + "\n".join([f"{letter}. {text}" for letter, text in zip(["A","B","C","D"], choices)])
     
-    # Create AI message with question
-    ai_message = AIMessage(
-        content="Here's a quick comprehension check:\n\n" + formatted_question,
-        name="healthbot",
-        id=str(uuid.uuid4())
-    )
-    messages.append(ai_message)
-    
     return {
         **state,
         "question": formatted_question,
         "correct_answer": correct_answer,
         "multiple_choice": multiple_choice,
-        "status": "awaiting_answer",
-        "bot_message": "Here's a quick comprehension check:\n\n" + formatted_question,
-        "response_type": "multiple_choice"
+        "status": "present_question"
     }
 
 
@@ -633,6 +677,12 @@ def entry_router(state: HealthBotState) -> str:
     if status == "presenting_summary" and user_message:
         print("🔄 Continuing from presenting_summary")
         return "present_summary"
+    elif status == "generate_question" and user_message:
+        print("🔄 Continuing from generate_question")
+        return "generate_question"
+    elif status == "present_question" and user_message:
+        print("🔄 Continuing from present_question")
+        return "present_question"
     elif status == "ask_restart" and user_message:
         print("🔄 Continuing from ask_restart")
         return "handle_restart"
@@ -670,6 +720,7 @@ def build_graph(checkpointer=None):
     graph.add_node("summarize", node_summarize)
     graph.add_node("present_summary", node_present_summary)
     graph.add_node("generate_question", node_generate_question)
+    graph.add_node("present_question", node_present_question) # Added present_question node
     graph.add_node("evaluate", node_evaluate)
     graph.add_node("handle_restart", node_handle_restart)
 
@@ -677,22 +728,17 @@ def build_graph(checkpointer=None):
     graph.add_conditional_edges(
         source=START,
         path=entry_router,
-        path_map=["collect_topic", "present_summary", "handle_restart", "evaluate"]
+        path_map=["collect_topic", "present_summary", "generate_question", "present_question", "handle_restart", "evaluate"]
     )
     
     # Add sequential flow edges
     graph.add_edge("collect_topic", "search")
+    graph.add_edge("search", "tools")  # Search creates tool calls, so go directly to tools
     graph.add_edge("tools", "summarize")  # Tools always go to summarize after execution
     graph.add_edge("summarize", "present_summary")
-    graph.add_edge("generate_question", "evaluate")
+    graph.add_edge("generate_question", "present_question") # Generate question leads to present question
+    graph.add_edge("present_question", "evaluate") # Present question leads to evaluate
     graph.add_edge("evaluate", "handle_restart")
-    
-    # Add conditional edge for search to determine if tools are needed
-    graph.add_conditional_edges(
-        source="search",
-        path=tool_router,
-        path_map=["tools", "summarize"]
-    )
     
     # Add conditional edges for user interaction points
     graph.add_conditional_edges(
