@@ -301,8 +301,8 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
         print("📄 User is ready for quiz, routing to generate_question")
         return {
             **state,
-            "status": "generate_question",
-            "user_message": ""  # Clear consumed input
+            "status": "generate_question"
+            # Don't clear user_message yet - it will be cleared after question generation
         }
     
     # Original logic for first time presenting summary
@@ -391,7 +391,8 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         print("❓ Continuing with existing question")
         return {
             **state,
-            "status": "present_question"
+            "status": "present_question",
+            "user_message": ""  # Clear consumed input
         }
     
     # Create human message with user's confirmation
@@ -473,7 +474,8 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         "question": formatted_question,
         "correct_answer": correct_answer,
         "multiple_choice": multiple_choice,
-        "status": "present_question"
+        "status": "present_question",
+        "user_message": ""  # Clear consumed input after generating question
     }
 
 
