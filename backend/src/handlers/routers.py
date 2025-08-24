@@ -95,6 +95,45 @@ def entry_router(state: HealthBotState) -> str:
     return "collect_topic"
 
 
+def present_summary_router(state: HealthBotState) -> str:
+    """Router for present_summary node - can end execution when presenting summary for first time"""
+    status = state.get("status", "collecting_topic")
+    user_message = (state.get("user_message") or "").strip()
+    message_type = state.get("message_type", "topic")
+    confirmation_prompt = state.get("confirmation_prompt")
+    
+    print(f"📄 Present summary router called with status: {status}, user_message: '{user_message}', message_type: '{message_type}'")
+    
+    # If we have a user message, route based on message_type
+    if user_message:
+        if message_type == "confirmation":
+            # Check if user wants to take the quiz (true) or decline (false)
+            if user_message.lower() in {"true", "yes", "y", "ready", "r", "ok", "go", "i'm ready", "ready for quiz"}:
+                print("✅ User ready for quiz, routing to generate_question")
+                return "generate_question"
+            elif user_message.lower() in {"false", "no", "n", "not ready", "not yet", "skip"}:
+                print("❌ User declined quiz, routing to handle_restart")
+                return "handle_restart"
+            else:
+                # Invalid confirmation response, wait for user
+                print("⏸️  Invalid confirmation response, waiting for user")
+                return END
+        elif message_type == "topic":
+            # New topic request - always route to collect_topic
+            print("🆕 User sent new topic, routing to collect_topic")
+            return "collect_topic"
+    
+    # If no user message and we have a confirmation prompt, end execution
+    # This means we just presented the summary for the first time
+    if not user_message and confirmation_prompt:
+        print("📄 Summary presented for first time, ending execution")
+        return END
+    
+    # If no user message and no confirmation prompt, wait for user input
+    print("⏸️  No user message, waiting for user input")
+    return END
+
+
 def tool_router(state: HealthBotState) -> str:
     """Router specifically for handling tool execution flow"""
     messages = state.get("messages", [])

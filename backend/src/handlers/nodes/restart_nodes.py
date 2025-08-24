@@ -7,6 +7,7 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
     print("🔄 Node: handle_restart")
     messages = state["messages"]
     user_message = (state.get("user_message") or "").strip().lower()
+    current_status = state.get("status", "ask_restart")
     
     # Create human message with user's restart decision
     human_message = HumanMessage(
@@ -16,6 +17,39 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
     )
     messages.append(human_message)
     
+    # Check if this is coming from present_summary (user declined quiz)
+    if current_status == "presenting_summary":
+        print("🔄 User declined quiz, asking for new topic")
+        # Create AI message asking for new topic
+        ai_message = AIMessage(
+            content="No problem! What other health topic or medical condition would you like to learn about?",
+            name="healthbot",
+            id=str(uuid.uuid4())
+        )
+        messages.append(ai_message)
+        
+        # Reset sensitive state for privacy and accuracy
+        return {
+            **state,
+            "status": "collecting_topic",
+            "bot_message": "No problem! What other health topic or medical condition would you like to learn about?",
+            "response_type": "text",
+            # Clear all sensitive data
+            "user_message": "",
+            "topic": "",
+            "search_results": [],
+            "summary": "",
+            "citations": [],
+            "question": "",
+            "correct_answer": "",
+            "multiple_choice": None,
+            "user_answer": "",
+            "grade": "",
+            "explanation": "",
+            "confirmation_prompt": None
+        }
+    
+    # Handle end-of-quiz restart logic
     if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
         # Create AI message for restart
         ai_message = AIMessage(

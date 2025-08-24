@@ -6,7 +6,7 @@ from langgraph_checkpoint_dynamodb import DynamoDBSaver, DynamoDBConfig, DynamoD
 # Import our modular components
 from .types import HealthBotState
 from .tools import web_search
-from .routers import router, entry_router, tool_router
+from .routers import router, entry_router, tool_router, present_summary_router
 from .nodes.topic_nodes import node_collect_topic, node_search
 from .nodes.summary_nodes import node_summarize, node_present_summary
 from .nodes.quiz_nodes import node_generate_question, node_present_question, node_evaluate
@@ -46,7 +46,7 @@ def build_graph(checkpointer=None):
     # Add conditional edges for user interaction points
     graph.add_conditional_edges(
         source="present_summary",
-        path=router,
+        path=present_summary_router,
         path_map=["generate_question", "collect_topic", END]
     )
     

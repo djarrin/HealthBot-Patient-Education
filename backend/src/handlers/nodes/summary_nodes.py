@@ -127,7 +127,9 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
             "status": "presenting_summary"
         }
     
-    # Original logic for first time presenting summary
+    # First time presenting summary - create confirmation prompt and end execution
+    print("📄 First time presenting summary - creating confirmation prompt and ending execution")
+    
     # Create confirmation prompt for the frontend
     confirmation_prompt: ConfirmationPrompt = {
         "message": "When you're ready for a quick comprehension check, click the button below.",
@@ -145,7 +147,7 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
-    print("📄 Setting status to 'presenting_summary' to pause for user interaction")
+    print("📄 Setting status to 'presenting_summary' and ending execution")
     return {
         **state, 
         "status": "presenting_summary",
