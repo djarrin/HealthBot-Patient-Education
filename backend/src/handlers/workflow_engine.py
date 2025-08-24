@@ -97,12 +97,21 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
             existing_state = graph.get_state(config)
             print("🔍 DEBUG: graph.get_state() completed successfully")
             print(f"📂 Found existing state for session {session_id}")
-            print(f"📂 Existing state status: {existing_state.get('status', 'unknown')}")
-            print(f"📂 Existing state keys: {list(existing_state.keys())}")
+            print(f"📂 Existing state type: {type(existing_state)}")
+            print(f"📂 Existing state value: {existing_state}")
+            
+            # Convert StateSnapshot to dict if needed
+            if hasattr(existing_state, 'value'):
+                existing_state_dict = existing_state.value
+            else:
+                existing_state_dict = existing_state
+                
+            print(f"📂 Existing state status: {existing_state_dict.get('status', 'unknown')}")
+            print(f"📂 Existing state keys: {list(existing_state_dict.keys())}")
             
             # Update the existing state with the new user message
             updated_state = {
-                **existing_state,
+                **existing_state_dict,
                 "user_message": message_content,
                 "message_type": message_type
             }
