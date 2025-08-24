@@ -119,6 +119,14 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
             "user_message": ""  # Clear consumed input
         }
     
+    # Check if we already have a confirmation prompt (meaning we've already presented the summary)
+    if state.get("confirmation_prompt"):
+        print("📄 Summary already presented, waiting for user interaction")
+        return {
+            **state,
+            "status": "presenting_summary"
+        }
+    
     # Original logic for first time presenting summary
     # Create confirmation prompt for the frontend
     confirmation_prompt: ConfirmationPrompt = {

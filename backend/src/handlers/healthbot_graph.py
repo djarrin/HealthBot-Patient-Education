@@ -32,7 +32,7 @@ def build_graph(checkpointer=None):
     graph.add_conditional_edges(
         source=START,
         path=entry_router,
-        path_map=["collect_topic", "present_summary", "generate_question", "present_question", "handle_restart", "evaluate"]
+        path_map=["collect_topic", "present_summary", "generate_question", "present_question", "handle_restart", "evaluate", "search", "summarize"]
     )
     
     # Add sequential flow edges
