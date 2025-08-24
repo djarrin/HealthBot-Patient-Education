@@ -89,8 +89,11 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
         # Check if we have an existing state for this session
         try:
             # Try to get existing state from checkpoint
+            print(f"🔍 Attempting to get existing state for session {session_id}")
+            print(f"🔍 Config being used: {config}")
             existing_state = graph.get_state(config)
             print(f"📂 Found existing state for session {session_id}")
+            print(f"📂 Existing state status: {existing_state.get('status', 'unknown')}")
             
             # Update the existing state with the new user message
             updated_state = {
@@ -103,6 +106,7 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
         except Exception as e:
             # No existing state found, create new initial state
             print(f"📂 No existing state found for session {session_id}, creating new state")
+            print(f"📂 Error details: {str(e)}")
             updated_state = create_initial_state(message_content, message_type)
         
         print(f"🔍 State to invoke with: {updated_state}")
