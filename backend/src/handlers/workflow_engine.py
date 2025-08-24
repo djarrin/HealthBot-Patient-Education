@@ -17,8 +17,11 @@ def setup_environment() -> None:
 
 def create_workflow_config(session_id: str) -> Dict[str, Any]:
     """Create the workflow configuration for LangGraph."""
-    config = {"configurable": {"thread_id": session_id}}
-    print(f"🔍 Created workflow config with thread_id: {session_id}")
+    config = {
+        "configurable": {"thread_id": session_id},
+        "recursion_limit": 50  # Increase recursion limit to handle complex workflows
+    }
+    print(f"🔍 Created workflow config with thread_id: {session_id}, recursion_limit: 50")
     return config
 
 def create_initial_state(message_content: str, message_type: str = 'topic') -> Dict[str, Any]:

@@ -8,6 +8,41 @@ def node_collect_topic(state: HealthBotState) -> HealthBotState:
     messages = state["messages"]
     user_message = (state.get("user_message") or "").strip()
     
+    # Check if this is a new topic request (user wants to start fresh)
+    current_status = state.get("status", "collecting_topic")
+    is_new_topic_request = current_status in ["presenting_summary", "present_question", "ask_restart", "ended"]
+    
+    # If this is a new topic request, reset the state for privacy and accuracy
+    if is_new_topic_request:
+        print("🔄 New topic request detected, resetting state")
+        # Reset sensitive state data but preserve the user message
+        state = {
+            **state,
+            "topic": "",
+            "search_results": [],
+            "summary": "",
+            "citations": [],
+            "question": "",
+            "correct_answer": "",
+            "multiple_choice": None,
+            "user_answer": "",
+            "grade": "",
+            "explanation": "",
+            "confirmation_prompt": None,
+            "messages": []  # Reset messages for fresh start
+        }
+        messages = state["messages"]
+    
+    # Validate that we have a user message
+    if not user_message:
+        print("❌ No user message provided, cannot proceed")
+        return {
+            **state,
+            "status": "collecting_topic",
+            "bot_message": "I didn't catch that. What health topic would you like to learn about?",
+            "response_type": "text"
+        }
+    
     # Create system message if this is the first interaction
     if not messages:
         system_prompt = (
@@ -50,6 +85,16 @@ def node_search(state: HealthBotState) -> HealthBotState:
     messages = state["messages"]
     topic = state.get("topic", "").strip()
     
+    # Validate topic before proceeding
+    if not topic:
+        print("❌ No topic provided for search")
+        return {
+            **state,
+            "status": "collecting_topic",
+            "bot_message": "I need a health topic to search for. What would you like to learn about?",
+            "response_type": "text"
+        }
+    
     # Create AI message that will call the search tool
     search_prompt = f"Search for up-to-date medical information about: {topic}"
     ai_message = AIMessage(
@@ -65,7 +110,7 @@ def node_search(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
-    print(f"🔍 Created tool call for topic: {topic}")
+    print(f"🔍 Created tool call for topic: '{topic}'")
     return {
         **state,
         "status": "searching",  # This will trigger router to check for tool calls

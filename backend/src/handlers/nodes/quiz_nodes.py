@@ -105,8 +105,7 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         "question": formatted_question,
         "correct_answer": correct_answer,
         "multiple_choice": multiple_choice,
-        "status": "present_question",
-        "user_message": ""  # Clear consumed input after generating question
+        "status": "present_question"
     }
 
 
@@ -130,10 +129,10 @@ def node_present_question(state: HealthBotState) -> HealthBotState:
         messages.append(human_message)
         
         # Node just processes the input - router will handle routing
-        print("❓ User provided answer, clearing user_message and maintaining present_question status")
+        print("❓ User provided answer, maintaining present_question status")
         return {
             **state,
-            "user_message": ""  # Clear consumed input
+            "status": "present_question"
         }
     
     # Original logic for first time presenting question

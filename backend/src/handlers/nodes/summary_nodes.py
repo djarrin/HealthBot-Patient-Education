@@ -113,10 +113,10 @@ def node_present_summary(state: HealthBotState) -> HealthBotState:
         messages.append(human_message)
         
         # Node just processes the input and sets status - router will handle routing
-        print("📄 User responded, clearing user_message and maintaining presenting_summary status")
+        print("📄 User responded, maintaining presenting_summary status")
         return {
             **state,
-            "user_message": ""  # Clear consumed input
+            "status": "presenting_summary"
         }
     
     # Check if we already have a confirmation prompt (meaning we've already presented the summary)
