@@ -60,10 +60,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         message_content = message_data['message_content']
         session_id = message_data['session_id']
+        message_type = message_data['message_type']
         user_id = user_info['user_id']
         user_email = user_info['user_email']
         
         print(f"📨 Message content: '{message_content}'")
+        print(f"📨 Message type: '{message_type}'")
         print(f"🆔 Session ID: '{session_id}'")
         print(f"👤 User ID: '{user_id}'")
         print(f"📧 User email: '{user_email}'")
@@ -82,7 +84,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Execute workflow (without setup_environment since we already did it)
         print("🔄 Executing workflow...")
         try:
-            new_state = execute_workflow(session_id, message_content, skip_environment_setup=True)
+            new_state = execute_workflow(session_id, message_content, message_type, skip_environment_setup=True)
             print(f"✅ Workflow executed successfully")
         except Exception as workflow_error:
             print(f"❌ Workflow execution failed: {workflow_error}")

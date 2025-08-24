@@ -41,13 +41,20 @@ def validate_message_body(event: Dict[str, Any]) -> Tuple[bool, Optional[Dict[st
         body = json.loads(event.get('body', '{}'))
         message_content = body.get('message', '').strip()
         session_id = body.get('sessionId')
+        message_type = body.get('messageType', 'topic')  # Default to 'topic' for backward compatibility
         
         if not message_content:
             return False, None, 'Message content is required'
         
+        # Validate message type
+        valid_message_types = ['topic', 'confirmation', 'answer', 'restart']
+        if message_type not in valid_message_types:
+            return False, None, f'Invalid messageType. Must be one of: {valid_message_types}'
+        
         return True, {
             'message_content': message_content,
-            'session_id': session_id
+            'session_id': session_id,
+            'message_type': message_type
         }, None
         
     except json.JSONDecodeError:

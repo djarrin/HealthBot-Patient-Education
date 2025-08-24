@@ -21,10 +21,11 @@ def create_workflow_config(session_id: str) -> Dict[str, Any]:
     print(f"🔍 Created workflow config with thread_id: {session_id}")
     return config
 
-def create_initial_state(message_content: str) -> Dict[str, Any]:
+def create_initial_state(message_content: str, message_type: str = 'topic') -> Dict[str, Any]:
     """Create the initial state for the workflow."""
     initial_state = {
         "user_message": message_content,
+        "message_type": message_type,
         "status": "collecting_topic",
         "messages": [],
         "topic": "",
@@ -41,16 +42,17 @@ def create_initial_state(message_content: str) -> Dict[str, Any]:
         "response_type": "text",
         "confirmation_prompt": None
     }
-    print(f"🔍 Created initial state with user_message: '{message_content}'")
+    print(f"🔍 Created initial state with user_message: '{message_content}', message_type: '{message_type}'")
     return initial_state
 
-def execute_workflow(session_id: str, message_content: str, skip_environment_setup: bool = False) -> Dict[str, Any]:
+def execute_workflow(session_id: str, message_content: str, message_type: str = 'topic', skip_environment_setup: bool = False) -> Dict[str, Any]:
     """
     Execute the LangGraph workflow.
     
     Args:
         session_id: The session ID for the workflow
         message_content: The user's message content
+        message_type: The type of message ('topic', 'confirmation', 'answer', 'restart')
         skip_environment_setup: If True, skip setting up environment (useful when already done)
     
     Returns:
@@ -73,15 +75,19 @@ def execute_workflow(session_id: str, message_content: str, skip_environment_set
         traceback.print_exc()
         raise Exception(f"Graph creation failed: {str(e)}")
     
-    # Create initial state
-    print(f"🔍 Starting workflow for session: {session_id}")
-    initial_state = create_initial_state(message_content)
-    
     # Execute workflow
     print("🔄 Invoking graph...")
-    print(f"🔍 Initial state: {initial_state}")
+    print(f"🔍 Session ID: {session_id}")
+    print(f"🔍 Message content: '{message_content}'")
+    print(f"🔍 Message type: '{message_type}'")
     print(f"🔍 Config: {config}")
+    
     try:
+        # Create initial state with the new message
+        initial_state = create_initial_state(message_content, message_type)
+        print(f"🔍 Initial state: {initial_state}")
+        
+        # Invoke the graph - LangGraph will handle checkpointing automatically
         new_state = graph.invoke(initial_state, config=config)
         print(f"✅ Workflow completed, final status: {new_state.get('status', 'unknown')}")
         print(f"🔍 Final state keys: {list(new_state.keys())}")

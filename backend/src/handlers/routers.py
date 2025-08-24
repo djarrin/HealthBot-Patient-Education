@@ -6,49 +6,60 @@ def router(state: HealthBotState) -> str:
     """Main router for user interaction points"""
     status = state.get("status", "collecting_topic")
     user_message = (state.get("user_message") or "").strip().lower()
+    message_type = state.get("message_type", "topic")
     
-    print(f"🔀 Router called with status: {status}, user_message: '{user_message}'")
+    print(f"🔀 Router called with status: {status}, user_message: '{user_message}', message_type: '{message_type}'")
     
     if status == "presenting_summary":
-        # If user has responded with ready/confirmation, transition to generate_question
-        if user_message in {"ready", "r", "ok", "go", "yes", "y", "i'm ready", "ready for quiz"}:
-            print("✅ User ready for quiz, routing to generate_question")
-            return "generate_question"
-        elif user_message in {"no", "n", "not ready", "not yet", "skip"}:
-            print("❌ User not ready for quiz, ending session")
-            return END
-        elif user_message:
-            # User sent a new topic, route to collect_topic
+        # If message type is confirmation, check if user is ready
+        if message_type == "confirmation":
+            if user_message in {"ready", "r", "ok", "go", "yes", "y", "i'm ready", "ready for quiz"}:
+                print("✅ User ready for quiz, routing to generate_question")
+                return "generate_question"
+            elif user_message in {"no", "n", "not ready", "not yet", "skip"}:
+                print("❌ User not ready for quiz, ending session")
+                return END
+            else:
+                # User sent something else, treat as new topic
+                print("🔄 User sent new topic, routing to collect_topic")
+                return "collect_topic"
+        else:
+            # If not a confirmation message, treat as new topic
             print("🔄 User sent new topic, routing to collect_topic")
             return "collect_topic"
-        else:
-            # No user message, wait for user interaction
-            print("⏸️  Waiting for user response at presenting_summary")
-            return END
     
     elif status == "present_question":
-        # If user has provided a quiz answer, transition to evaluate
-        # Frontend sends just the letter (A, B, C, or D)
-        if user_message.upper() in {"A", "B", "C", "D"}:
-            print("✅ User provided quiz answer, routing to evaluate")
-            return "evaluate"
+        # If message type is answer, check if it's a valid quiz answer
+        if message_type == "answer":
+            if user_message.upper() in {"A", "B", "C", "D"}:
+                print("✅ User provided quiz answer, routing to evaluate")
+                return "evaluate"
+            else:
+                # Invalid answer format, wait for user response
+                print("⏸️  Invalid answer format, waiting for user response")
+                return END
         else:
-            # Wait for user response
-            print("⏸️  Waiting for user response at present_question")
-            return END
+            # If not an answer message, treat as new topic
+            print("🔄 User sent new topic, routing to collect_topic")
+            return "collect_topic"
     
     elif status == "ask_restart":
         # Proceed once user responds yes/no
-        if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
-            print("✅ User wants to restart, routing to handle_restart")
-            return "handle_restart"
-        elif user_message in {"no", "n", "end", "exit", "quit", "stop"}:
-            print("❌ User wants to end, routing to handle_restart")
-            return "handle_restart"
+        if message_type == "restart":
+            if user_message in {"yes", "y", "restart", "again", "another", "new topic"}:
+                print("✅ User wants to restart, routing to handle_restart")
+                return "handle_restart"
+            elif user_message in {"no", "n", "end", "exit", "quit", "stop"}:
+                print("❌ User wants to end, routing to handle_restart")
+                return "handle_restart"
+            else:
+                # Wait for user response
+                print("⏸️  Waiting for user response at ask_restart")
+                return END
         else:
-            # Wait for user response
-            print("⏸️  Waiting for user response at ask_restart")
-            return END
+            # If not a restart message, treat as new topic
+            print("🔄 User sent new topic, routing to collect_topic")
+            return "collect_topic"
     elif status == "ended":
         print("✅ Session ended")
         return END
@@ -58,17 +69,28 @@ def router(state: HealthBotState) -> str:
 
 
 def entry_router(state: HealthBotState) -> str:
-    """Router to determine which node to start from based on current status"""
+    """Router to determine which node to start from based on current status and message type"""
     status = state.get("status", "collecting_topic")
     user_message = (state.get("user_message") or "").strip()
+    message_type = state.get("message_type", "topic")
     
-    print(f"🚪 Entry router called with status: {status}, user_message: '{user_message}'")
+    print(f"🚪 Entry router called with status: {status}, user_message: '{user_message}', message_type: '{message_type}'")
     print(f"🚪 State keys: {list(state.keys())}")
     
-    # If we have a user message, always start from collect_topic for new topics
-    if user_message and status == "presenting_summary":
-        print("🆕 User sent new message, starting fresh from collect_topic")
-        return "collect_topic"
+    # If we have a user message with a specific message type, route accordingly
+    if user_message:
+        if message_type == "confirmation" and status == "presenting_summary":
+            print("✅ User sent confirmation, continuing from present_summary")
+            return "present_summary"
+        elif message_type == "answer" and status == "present_question":
+            print("✅ User sent answer, continuing from present_question")
+            return "present_question"
+        elif message_type == "restart" and status == "ask_restart":
+            print("✅ User sent restart response, continuing from ask_restart")
+            return "ask_restart"
+        elif message_type == "topic":
+            print("🆕 User sent new topic, starting fresh from collect_topic")
+            return "collect_topic"
     
     # If we're in presenting_summary with no user message, continue from present_summary
     if status == "presenting_summary":

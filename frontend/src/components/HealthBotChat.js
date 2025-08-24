@@ -66,11 +66,11 @@ export default function HealthBotChat() {
     }
   };
 
-  const sendMessageToAPI = async (messageContent) => {
+  const sendMessageToAPI = async (messageContent, messageType = 'topic') => {
     try {
       setIsTyping(true);
       
-      const response = await apiService.sendMessage(messageContent, sessionId);
+      const response = await apiService.sendMessage(messageContent, sessionId, messageType);
 
       // Update session ID if provided
       if (response.sessionId) {
@@ -141,7 +141,7 @@ export default function HealthBotChat() {
     setPendingConfirmation(false);
 
     try {
-      await sendMessageToAPI(response);
+      await sendMessageToAPI(response, 'confirmation');
     } catch (error) {
       console.error('Error handling confirmation:', error);
     }
@@ -201,7 +201,7 @@ export default function HealthBotChat() {
     });
 
     try {
-      const response = await sendMessageToAPI(quizAnswer);
+      const response = await sendMessageToAPI(quizAnswer, 'answer');
       
       setShowQuiz(false);
       setCurrentStep('quiz-complete');
@@ -240,7 +240,7 @@ export default function HealthBotChat() {
     });
 
     try {
-      await sendMessageToAPI('I\'d like to end this session.');
+      await sendMessageToAPI('I\'d like to end this session.', 'restart');
     } catch (error) {
       // Even if API fails, show end message
       addMessage({
@@ -283,7 +283,12 @@ export default function HealthBotChat() {
       });
       
       try {
-        await sendMessageToAPI(userInput);
+        // Determine message type based on context
+        let messageType = 'topic';
+        if (currentStep === 'quiz-complete' || userInput.toLowerCase().includes('another') || userInput.toLowerCase().includes('new') || userInput.toLowerCase().includes('end') || userInput.toLowerCase().includes('exit')) {
+          messageType = 'restart';
+        }
+        await sendMessageToAPI(userInput, messageType);
       } catch (error) {
         // Error handling is done in sendMessageToAPI
       }

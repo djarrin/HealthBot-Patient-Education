@@ -16,6 +16,7 @@ class ConfirmationPrompt(TypedDict):
 class HealthBotState(MessagesState):
     # User input and workflow control
     user_message: str
+    message_type: Literal["topic", "confirmation", "answer", "restart"]
     topic: str
     status: Literal[
         "collecting_topic",
