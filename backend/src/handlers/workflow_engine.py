@@ -86,12 +86,29 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
     print(f"🔍 Config: {config}")
     
     try:
-        # Create initial state with the new message
-        initial_state = create_initial_state(message_content, message_type)
-        print(f"🔍 Initial state: {initial_state}")
+        # Check if we have an existing state for this session
+        try:
+            # Try to get existing state from checkpoint
+            existing_state = graph.get_state(config)
+            print(f"📂 Found existing state for session {session_id}")
+            
+            # Update the existing state with the new user message
+            updated_state = {
+                **existing_state,
+                "user_message": message_content,
+                "message_type": message_type
+            }
+            print(f"📝 Updated existing state with user_message: '{message_content}'")
+            
+        except Exception as e:
+            # No existing state found, create new initial state
+            print(f"📂 No existing state found for session {session_id}, creating new state")
+            updated_state = create_initial_state(message_content, message_type)
+        
+        print(f"🔍 State to invoke with: {updated_state}")
         
         # Invoke the graph - LangGraph will handle checkpointing automatically
-        new_state = graph.invoke(initial_state, config=config)
+        new_state = graph.invoke(updated_state, config=config)
         print(f"✅ Workflow completed, final status: {new_state.get('status', 'unknown')}")
         print(f"🔍 Final state keys: {list(new_state.keys())}")
         return new_state

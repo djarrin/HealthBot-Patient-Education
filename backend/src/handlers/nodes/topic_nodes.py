@@ -8,31 +8,6 @@ def node_collect_topic(state: HealthBotState) -> HealthBotState:
     messages = state["messages"]
     user_message = (state.get("user_message") or "").strip()
     
-    # Check if this is a new topic request (user wants to start fresh)
-    current_status = state.get("status", "collecting_topic")
-    is_new_topic_request = current_status in ["presenting_summary", "present_question", "ask_restart", "ended"]
-    
-    # If this is a new topic request, reset the state for privacy and accuracy
-    if is_new_topic_request:
-        print("🔄 New topic request detected, resetting state")
-        # Reset sensitive state data but preserve the user message
-        state = {
-            **state,
-            "topic": "",
-            "search_results": [],
-            "summary": "",
-            "citations": [],
-            "question": "",
-            "correct_answer": "",
-            "multiple_choice": None,
-            "user_answer": "",
-            "grade": "",
-            "explanation": "",
-            "confirmation_prompt": None,
-            "messages": []  # Reset messages for fresh start
-        }
-        messages = state["messages"]
-    
     # Validate that we have a user message
     if not user_message:
         print("❌ No user message provided, cannot proceed")
