@@ -84,16 +84,21 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
     print(f"🔍 Message content: '{message_content}'")
     print(f"🔍 Message type: '{message_type}'")
     print(f"🔍 Config: {config}")
+    print("🔍 DEBUG: About to check for existing state...")
     
     try:
         # Check if we have an existing state for this session
+        print("🔍 DEBUG: Starting state check...")
         try:
             # Try to get existing state from checkpoint
             print(f"🔍 Attempting to get existing state for session {session_id}")
             print(f"🔍 Config being used: {config}")
+            print("🔍 DEBUG: Calling graph.get_state()...")
             existing_state = graph.get_state(config)
+            print("🔍 DEBUG: graph.get_state() completed successfully")
             print(f"📂 Found existing state for session {session_id}")
             print(f"📂 Existing state status: {existing_state.get('status', 'unknown')}")
+            print(f"📂 Existing state keys: {list(existing_state.keys())}")
             
             # Update the existing state with the new user message
             updated_state = {
@@ -102,14 +107,19 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
                 "message_type": message_type
             }
             print(f"📝 Updated existing state with user_message: '{message_content}'")
+            print(f"📝 Updated state status: {updated_state.get('status', 'unknown')}")
             
         except Exception as e:
             # No existing state found, create new initial state
             print(f"📂 No existing state found for session {session_id}, creating new state")
             print(f"📂 Error details: {str(e)}")
+            print(f"📂 Error type: {type(e).__name__}")
+            import traceback
+            print(f"📂 Full traceback: {traceback.format_exc()}")
             updated_state = create_initial_state(message_content, message_type)
         
         print(f"🔍 State to invoke with: {updated_state}")
+        print(f"🔍 DEBUG: About to invoke graph with status: {updated_state.get('status', 'unknown')}")
         
         # Invoke the graph - LangGraph will handle checkpointing automatically
         new_state = graph.invoke(updated_state, config=config)
