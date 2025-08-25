@@ -251,9 +251,9 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
     
     # Create the response message
     if is_correct:
-        message = f"✅ Correct! {explanation}\n\nWould you like to learn about another health topic? Reply 'yes' or 'no'."
+        message = f"✅ Correct! {explanation}\n\nWould you like to learn about another health topic?"
     else:
-        message = f"❌ Incorrect. {explanation}\n\nWould you like to learn about another health topic? Reply 'yes' or 'no'."
+        message = f"❌ Incorrect. {explanation}\n\nWould you like to learn about another health topic?"
     
     # Create AI message with evaluation
     ai_message = AIMessage(
@@ -272,5 +272,6 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
         "explanation": explanation,
         "status": "ask_restart",
         "bot_message": message,
-        "response_type": "text"
+        "response_type": "confirmation",
+        "confirmation_prompt": True
     }

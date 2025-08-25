@@ -91,8 +91,8 @@ def entry_router(state: HealthBotState) -> str:
             print("✅ User sent answer, continuing from present_question")
             return "present_question"
         elif message_type == "restart" and status == "ask_restart":
-            print("✅ User sent restart response, continuing from ask_restart")
-            return "ask_restart"
+            print("✅ User sent restart response, continuing from handle_restart")
+            return "handle_restart"
     
     # If no user message, continue from current status
     if status in ["presenting_summary", "present_question", "ask_restart", "generate_question", "searching", "summarizing"]:

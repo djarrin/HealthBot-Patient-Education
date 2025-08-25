@@ -147,6 +147,24 @@ export default function HealthBotChat() {
     }
   };
 
+  const handleRestartConfirmation = async (confirmed) => {
+    const response = confirmed ? 'yes' : 'no';
+    
+    addMessage({
+      type: 'user',
+      content: confirmed ? 'Yes, I\'d like to learn about another health topic!' : 'No, I\'d like to end the session.',
+      timestamp: new Date()
+    });
+
+    setPendingConfirmation(false);
+
+    try {
+      await sendMessageToAPI(response, 'restart');
+    } catch (error) {
+      console.error('Error handling restart confirmation:', error);
+    }
+  };
+
   const handleTopicSubmit = async (topic) => {
     addMessage({
       type: 'user',
@@ -326,18 +344,39 @@ export default function HealthBotChat() {
                         </ReactMarkdown>
                       </div>
                       <div className="confirmation-buttons">
-                        <button 
-                          onClick={() => handleConfirmation(true)}
-                          className="confirm-button"
-                        >
-                          ✅ I'm Ready
-                        </button>
-                        <button 
-                          onClick={() => handleConfirmation(false)}
-                          className="reject-button"
-                        >
-                          ❌ Not Yet
-                        </button>
+                        {message.content.includes('Would you like to learn about another health topic') ? (
+                          // Restart confirmation buttons
+                          <>
+                            <button 
+                              onClick={() => handleRestartConfirmation(true)}
+                              className="confirm-button"
+                            >
+                              ✅ Yes, Another Topic
+                            </button>
+                            <button 
+                              onClick={() => handleRestartConfirmation(false)}
+                              className="reject-button"
+                            >
+                              ❌ No, End Session
+                            </button>
+                          </>
+                        ) : (
+                          // Regular confirmation buttons
+                          <>
+                            <button 
+                              onClick={() => handleConfirmation(true)}
+                              className="confirm-button"
+                            >
+                              ✅ I'm Ready
+                            </button>
+                            <button 
+                              onClick={() => handleConfirmation(false)}
+                              className="reject-button"
+                            >
+                              ❌ Not Yet
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ) : message.responseType === 'multiple_choice' ? (

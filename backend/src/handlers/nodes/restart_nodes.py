@@ -89,7 +89,7 @@ def node_handle_restart(state: HealthBotState) -> HealthBotState:
     # First time asking for restart - create AI message with the restart question
     print("🔄 First time asking for restart")
     ai_message = AIMessage(
-        content="Would you like to learn about another health topic?",
+        content="Would you like to learn about another health topic? Reply 'yes' or 'no'.",
         name="healthbot",
         id=str(uuid.uuid4())
     )
