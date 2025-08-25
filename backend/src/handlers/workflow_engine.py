@@ -87,51 +87,22 @@ def execute_workflow(session_id: str, message_content: str, message_type: str = 
     print("🔍 DEBUG: About to check for existing state...")
     
     try:
-        # Check if we have an existing state for this session
-        print("🔍 DEBUG: Starting state check...")
-        try:
-            # Try to get existing state from checkpoint
-            print(f"🔍 Attempting to get existing state for session {session_id}")
-            print(f"🔍 Config being used: {config}")
-            print("🔍 DEBUG: Calling graph.get_state()...")
-            existing_state = graph.get_state(config)
-            print("🔍 DEBUG: graph.get_state() completed successfully")
-            print(f"📂 Found existing state for session {session_id}")
-            print(f"📂 Existing state type: {type(existing_state)}")
-            print(f"📂 Existing state value: {existing_state}")
-            
-            # Convert StateSnapshot to dict if needed
-            if hasattr(existing_state, 'value'):
-                existing_state_dict = existing_state.value
-            else:
-                existing_state_dict = existing_state
-                
-            print(f"📂 Existing state status: {existing_state_dict.get('status', 'unknown')}")
-            print(f"📂 Existing state keys: {list(existing_state_dict.keys())}")
-            
-            # Update the existing state with the new user message
-            updated_state = {
-                **existing_state_dict,
-                "user_message": message_content,
-                "message_type": message_type
-            }
-            print(f"📝 Updated existing state with user_message: '{message_content}'")
-            print(f"📝 Updated state status: {updated_state.get('status', 'unknown')}")
-            
-        except Exception as e:
-            # No existing state found, create new initial state
-            print(f"📂 No existing state found for session {session_id}, creating new state")
-            print(f"📂 Error details: {str(e)}")
-            print(f"📂 Error type: {type(e).__name__}")
-            import traceback
-            print(f"📂 Full traceback: {traceback.format_exc()}")
-            updated_state = create_initial_state(message_content, message_type)
+        # Create the initial state with the user message
+        # LangGraph will automatically load existing state from the checkpoint
+        # and merge it with the new message
+        initial_state = {
+            "user_message": message_content,
+            "message_type": message_type,
+            "messages": []  # LangGraph will merge with existing messages
+        }
         
-        print(f"🔍 State to invoke with: {updated_state}")
-        print(f"🔍 DEBUG: About to invoke graph with status: {updated_state.get('status', 'unknown')}")
+        print(f"🔍 Invoking graph with user_message: '{message_content}', message_type: '{message_type}'")
+        print(f"🔍 Config: {config}")
+        print(f"🔍 Thread ID: {config.get('configurable', {}).get('thread_id', 'unknown')}")
         
         # Invoke the graph - LangGraph will handle checkpointing automatically
-        new_state = graph.invoke(updated_state, config=config)
+        # It will load existing state and append the new message
+        new_state = graph.invoke(initial_state, config=config)
         print(f"✅ Workflow completed, final status: {new_state.get('status', 'unknown')}")
         print(f"🔍 Final state keys: {list(new_state.keys())}")
         return new_state
