@@ -29,7 +29,7 @@ def router(state: HealthBotState) -> str:
             return END
     
     elif message_type == "answer":
-        if status == "present_question":
+        if status in ["present_question", "awaiting_answer"]:
             if user_message.upper() in {"A", "B", "C", "D"}:
                 print("✅ User provided quiz answer, routing to evaluate")
                 return "evaluate"
@@ -87,7 +87,7 @@ def entry_router(state: HealthBotState) -> str:
                 # Invalid confirmation response, route to present_summary to handle
                 print("🔄 Invalid confirmation response, routing to present_summary")
                 return "present_summary"
-        elif message_type == "answer" and status == "present_question":
+        elif message_type == "answer" and status in ["present_question", "awaiting_answer"]:
             print("✅ User sent answer, continuing from present_question")
             return "present_question"
         elif message_type == "restart" and status == "ask_restart":
