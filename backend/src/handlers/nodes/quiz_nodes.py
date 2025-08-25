@@ -34,12 +34,18 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
     # Generate question using LLM
     llm = get_llm()
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "Generate a single multiple-choice question that tests understanding of the medical information provided."),
+        ("system", "You are a medical educator. Generate multiple-choice questions in valid JSON format only. Do not include markdown formatting, code blocks, or any text outside the JSON."),
         ("human", (
             "Based on the following educational summary about '{topic}', create ONE multiple-choice question with 4 choices (A-D) and mark the correct answer.\n"
             "The question should test understanding of key concepts from the summary.\n"
-            "Return strict JSON with keys: question, choices (list of 4 strings), correct_letter (A-D).\n"
-            "Make sure the question is clear and the choices are plausible but only one is correct.\n\n"
+            "Return ONLY valid JSON with this exact structure:\n"
+            "{{\n"
+            '  "question": "Your question text here",\n'
+            '  "choices": ["Choice A text", "Choice B text", "Choice C text", "Choice D text"],\n'
+            '  "correct_letter": "A"\n'
+            "}}\n"
+            "Make sure the question is clear and the choices are plausible but only one is correct.\n"
+            "Do not include any text before or after the JSON.\n\n"
             "Summary:\n{summary}"
         ))
     ])
@@ -47,7 +53,8 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
     try:
         response = llm.invoke(prompt.format_messages(summary=summary, topic=topic))
         raw = response.content
-        print(f"🔍 LLM response: {raw[:200]}...")
+        print(f"🔍 LLM response length: {len(raw)}")
+        print(f"🔍 LLM response: {raw}")
     except Exception as e:
         print(f"Error calling LLM in generate_question: {e}")
         raw = '{"question": "What is one key point from the summary?", "choices": ["A short statement that aligns with the summary", "An unrelated claim", "A contradictory claim", "An extreme or unsafe recommendation"], "correct_letter": "A"}'
@@ -56,14 +63,40 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
     try:
         if not raw or not raw.strip():
             raise ValueError("Empty response from LLM")
-        parsed = json.loads(raw)
+        
+        # The LLM should return clean JSON, but let's validate and clean if needed
+        cleaned_raw = raw.strip()
+        
+        # Remove markdown code blocks if present (fallback)
+        if cleaned_raw.startswith("```json"):
+            cleaned_raw = cleaned_raw[7:]
+        if cleaned_raw.endswith("```"):
+            cleaned_raw = cleaned_raw[:-3]
+        cleaned_raw = cleaned_raw.strip()
+        
+        print(f"🔍 JSON to parse: {cleaned_raw}")
+        parsed = json.loads(cleaned_raw)
+        
+        # Validate the parsed JSON structure
+        if not isinstance(parsed, dict):
+            raise ValueError("Response is not a JSON object")
+        
         question_text = parsed.get("question", "")
         choices = parsed.get("choices", [])
         correct_letter = (parsed.get("correct_letter", "").strip() or "A").upper()
         
-        # Validate the response
-        if not question_text or len(choices) != 4 or correct_letter not in ["A", "B", "C", "D"]:
-            raise ValueError("Invalid question format")
+        # Validate the response structure
+        if not question_text:
+            raise ValueError("Missing question text")
+        if not isinstance(choices, list) or len(choices) != 4:
+            raise ValueError(f"Invalid choices format: expected list of 4 strings, got {type(choices)} with length {len(choices) if isinstance(choices, list) else 'N/A'}")
+        if correct_letter not in ["A", "B", "C", "D"]:
+            raise ValueError(f"Invalid correct_letter: expected A, B, C, or D, got {correct_letter}")
+        
+        # Validate that all choices are strings
+        for i, choice in enumerate(choices):
+            if not isinstance(choice, str):
+                raise ValueError(f"Choice {i} is not a string: {type(choice)}")
             
         # Get the correct answer text
         correct_index = ["A", "B", "C", "D"].index(correct_letter)

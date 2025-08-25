@@ -75,9 +75,18 @@ def entry_router(state: HealthBotState) -> str:
             # New topic request - always start fresh
             print("🆕 User sent new topic, starting fresh from collect_topic")
             return "collect_topic"
-        elif message_type == "confirmation" and status == "presenting_summary":
-            print("✅ User sent confirmation, continuing from present_summary")
-            return "present_summary"
+        elif message_type == "confirmation":
+            # User sent confirmation - check if they want to take the quiz
+            if user_message.lower() in {"true", "yes", "y", "ready", "r", "ok", "go", "i'm ready", "ready for quiz"}:
+                print("✅ User ready for quiz, routing to generate_question")
+                return "generate_question"
+            elif user_message.lower() in {"false", "no", "n", "not ready", "not yet", "skip"}:
+                print("❌ User declined quiz, routing to handle_restart")
+                return "handle_restart"
+            else:
+                # Invalid confirmation response, route to present_summary to handle
+                print("🔄 Invalid confirmation response, routing to present_summary")
+                return "present_summary"
         elif message_type == "answer" and status == "present_question":
             print("✅ User sent answer, continuing from present_question")
             return "present_question"
