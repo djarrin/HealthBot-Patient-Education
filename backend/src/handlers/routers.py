@@ -17,8 +17,8 @@ def router(state: HealthBotState) -> str:
                 print("✅ User ready for quiz, routing to generate_question")
                 return "generate_question"
             elif user_message in {"no", "n", "not ready", "not yet", "skip"}:
-                print("❌ User not ready for quiz, ending session")
-                return END
+                print("❌ User not ready for quiz, routing to handle_restart")
+                return "handle_restart"
             else:
                 # Invalid confirmation response, wait for user
                 print("⏸️  Invalid confirmation response, waiting for user")
@@ -152,6 +152,38 @@ def generate_question_router(state: HealthBotState) -> str:
 def evaluate_router(state: HealthBotState) -> str:
     """Router for evaluate node - always ends execution after providing evaluation"""
     print("📊 Evaluate router called - ending execution to return evaluation")
+    return END
+
+
+def handle_restart_router(state: HealthBotState) -> str:
+    """Router for handle_restart node - can end execution when asking restart question for first time"""
+    status = state.get("status", "ask_restart")
+    user_message = (state.get("user_message") or "").strip()
+    message_type = state.get("message_type", "topic")
+    
+    print(f"🔄 Handle restart router called with status: {status}, user_message: '{user_message}', message_type: '{message_type}'")
+    
+    # If we have a user message, route based on message_type
+    if user_message:
+        if message_type == "confirmation":
+            if user_message.lower() in {"yes", "y", "restart", "again", "another", "new topic"}:
+                print("🔄 User wants to restart, routing to collect_topic")
+                return "collect_topic"
+            elif user_message.lower() in {"no", "n", "end", "exit", "quit", "stop"}:
+                print("🔄 User wants to end session, ending execution")
+                return END
+            else:
+                # Invalid confirmation response, wait for user
+                print("⏸️  Invalid confirmation response, waiting for user")
+                return END
+        else:
+            # Wrong message type, wait for user
+            print("⏸️  Wrong message type, waiting for user")
+            return END
+    
+    # If no user message, end execution
+    # This means we just asked the restart question for the first time
+    print("🔄 Restart question asked for first time, ending execution")
     return END
 
 
