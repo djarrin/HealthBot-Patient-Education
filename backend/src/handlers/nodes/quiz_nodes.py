@@ -263,6 +263,8 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
+    # Return the evaluation and end execution
+    print("📊 Evaluation completed, ending execution")
     return {
         **state,
         "user_answer": user_message,
@@ -270,6 +272,5 @@ def node_evaluate(state: HealthBotState) -> HealthBotState:
         "explanation": explanation,
         "status": "ask_restart",
         "bot_message": message,
-        "response_type": "text",
-        "user_message": ""  # Clear consumed input
+        "response_type": "text"
     }

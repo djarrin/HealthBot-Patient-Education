@@ -149,6 +149,12 @@ def generate_question_router(state: HealthBotState) -> str:
     return END
 
 
+def evaluate_router(state: HealthBotState) -> str:
+    """Router for evaluate node - always ends execution after providing evaluation"""
+    print("📊 Evaluate router called - ending execution to return evaluation")
+    return END
+
+
 def present_question_router(state: HealthBotState) -> str:
     """Router for present_question node - can end execution when presenting question for first time"""
     status = state.get("status", "collecting_topic")
