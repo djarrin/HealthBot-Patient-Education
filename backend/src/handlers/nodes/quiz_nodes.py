@@ -133,12 +133,16 @@ def node_generate_question(state: HealthBotState) -> HealthBotState:
         
         formatted_question = question_text + "\n\n" + "\n".join([f"{letter}. {text}" for letter, text in zip(["A","B","C","D"], choices)])
     
+    # Return the question directly and end execution
+    print("❓ Question generated successfully, ending execution")
     return {
         **state,
         "question": formatted_question,
         "correct_answer": correct_answer,
         "multiple_choice": multiple_choice,
-        "status": "present_question"
+        "status": "awaiting_answer",
+        "bot_message": "Here's a quick comprehension check:\n\n" + formatted_question,
+        "response_type": "multiple_choice"
     }
 
 

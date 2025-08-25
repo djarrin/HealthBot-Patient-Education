@@ -143,6 +143,12 @@ def present_summary_router(state: HealthBotState) -> str:
     return END
 
 
+def generate_question_router(state: HealthBotState) -> str:
+    """Router for generate_question node - always ends execution after generating question"""
+    print("❓ Generate question router called - ending execution to return question")
+    return END
+
+
 def present_question_router(state: HealthBotState) -> str:
     """Router for present_question node - can end execution when presenting question for first time"""
     status = state.get("status", "collecting_topic")
