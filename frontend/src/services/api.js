@@ -29,13 +29,14 @@ class ApiService {
     }
   }
 
-  async sendMessage(message, sessionId = null) {
+  async sendMessage(message, sessionId = null, messageType = 'topic') {
     try {
-      console.log('Sending message to API:', { message, sessionId });
+      console.log('Sending message to API:', { message, sessionId, messageType });
       const token = await this.getAuthToken();
       
       const requestBody = {
         message: message,
+        messageType: messageType,
         ...(sessionId && { sessionId })
       };
 

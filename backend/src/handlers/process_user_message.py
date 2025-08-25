@@ -1,171 +1,114 @@
 import json
-import boto3
-import os
-import uuid
-from datetime import datetime, timezone
 from typing import Dict, Any
 
-# Import secrets manager utility
-from ..utils.secrets_manager import set_secrets_as_env_vars
-
-# LangGraph workflow
-from .healthbot_graph import GRAPH
-
-# Initialize AWS clients
-dynamodb = boto3.resource('dynamodb')
-chat_sessions_table = dynamodb.Table(os.environ['CHAT_SESSIONS_TABLE'])
-user_messages_table = dynamodb.Table(os.environ['USER_MESSAGES_TABLE'])
+# Import our modular components
+from .request_validator import validate_request, validate_message_body, validate_environment
+from .session_manager import generate_session_id, upsert_chat_session, save_user_message, save_bot_message
+from .workflow_engine import execute_workflow, setup_environment
+from .response_builder import (
+    extract_response_data, 
+    build_response_data, 
+    create_api_response, 
+    create_error_response, 
+    create_health_response
+)
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    print("🚀 ===== HANDLER STARTED =====")
+    print(f"📝 Event type: {type(event)}")
+    print(f"📝 Event keys: {list(event.keys()) if isinstance(event, dict) else 'Not a dict'}")
+    
     try:
-        print(f"Received event: {json.dumps(event, default=str)}")
+        print(f"🚀 Handler started")
+        print(f"📝 Received event: {json.dumps(event, default=str)}")
         
-        # Handle health check endpoint
-        path = event.get('path', '')
-        http_method = event.get('httpMethod', '')
-        print(f"Request path: {path}, method: {http_method}")
+        # Validate request and extract user info
+        print("🔍 Validating request...")
+        is_valid, user_info, error_msg = validate_request(event)
+        print(f"🔍 Validation result: valid={is_valid}, error={error_msg}")
         
-        if http_method == 'GET' and ('/health' in path or path.endswith('/health')):
-            return _response(200, {'status': 'healthy', 'message': 'HealthBot API is running'})
+        if not is_valid:
+            print(f"❌ Request validation failed: {error_msg}")
+            return _response(401, create_error_response(401, 'Unauthorized', error_msg))
         
-        # For non-health endpoints, check if we have authentication
-        if 'requestContext' not in event or 'authorizer' not in event['requestContext']:
-            return _response(401, {'error': 'Unauthorized', 'message': 'Authentication required'})
+        # Handle health check
+        if user_info.get('is_health_check'):
+            print("✅ Health check request")
+            return _response(200, create_health_response())
         
-        # Load secrets from AWS Secrets Manager and set as environment variables
-        print("Loading secrets...")
-        secrets = set_secrets_as_env_vars()
-        print(f"Loaded secrets keys: {list(secrets.keys())}")
+        # Set up environment and load secrets FIRST
+        print("🔐 Setting up environment and loading secrets...")
+        setup_environment()
         
-        # Debug API key loading
-        openai_key = os.environ.get('OPENAI_API_KEY', '')
-        print(f"OpenAI API Key loaded: {openai_key[:10] if openai_key else 'NOT_FOUND'}...")
-        print(f"OpenAI API Key length: {len(openai_key) if openai_key else 0}")
+        # Validate environment AFTER secrets are loaded
+        print("🔍 Validating environment...")
+        env_valid, env_error = validate_environment()
+        print(f"🔍 Environment validation: valid={env_valid}, error={env_error}")
         
-        # Check if required environment variables are set
-        required_env_vars = ['OPENAI_API_KEY', 'TAVILY_API_KEY']
-        missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
-        if missing_vars:
-            print(f"Missing required environment variables: {missing_vars}")
-            return _response(500, {'error': 'Configuration error', 'message': f'Missing environment variables: {missing_vars}'})
+        if not env_valid:
+            print(f"❌ Environment validation failed: {env_error}")
+            return _response(500, create_error_response(500, 'Configuration error', env_error))
         
-        body = json.loads(event.get('body', '{}'))
-        message_content = body.get('message', '').strip()
-        session_id = body.get('sessionId')
-
-        if not message_content:
-            return _response(400, {'error': 'Message content is required'})
-
-        user_claims = event['requestContext']['authorizer']['claims']
-        user_id = user_claims['sub']
-        user_email = user_claims.get('email', '')
-
+        # Validate message body
+        print("🔍 Validating message body...")
+        body_valid, message_data, body_error = validate_message_body(event)
+        print(f"🔍 Body validation: valid={body_valid}, error={body_error}")
+        
+        if not body_valid:
+            print(f"❌ Message body validation failed: {body_error}")
+            return _response(400, create_error_response(400, 'Bad Request', body_error))
+        
+        message_content = message_data['message_content']
+        session_id = message_data['session_id']
+        message_type = message_data['message_type']
+        user_id = user_info['user_id']
+        user_email = user_info['user_email']
+        
+        print(f"📨 Message content: '{message_content}'")
+        print(f"📨 Message type: '{message_type}'")
+        print(f"🆔 Session ID: '{session_id}'")
+        print(f"👤 User ID: '{user_id}'")
+        print(f"📧 User email: '{user_email}'")
+        
         # Generate session ID if not provided
         if not session_id:
-            session_id = str(uuid.uuid4())
+            session_id = generate_session_id()
             print(f"Generated new session ID: {session_id}")
-
-        now_iso = datetime.now(timezone.utc).isoformat()
-        ttl_30d = int(datetime.now(timezone.utc).timestamp()) + (30 * 24 * 60 * 60)
-
-        # Upsert chat session
-        chat_sessions_table.update_item(
-            Key={'sessionId': session_id},
-            UpdateExpression='SET userId=:uid, userEmail=:uem, lastActivity=:la, messageCount=if_not_exists(messageCount,:z)+:one, #ttl=:ttl',
-            ExpressionAttributeValues={
-                ':uid': user_id,
-                ':uem': user_email,
-                ':la': now_iso,
-                ':z': 0,
-                ':one': 1,
-                ':ttl': ttl_30d
-            },
-            ExpressionAttributeNames={
-                '#ttl': 'ttl'
-            }
-        )
-
-        # Persist user message
-        message_id = str(uuid.uuid4())
-        user_messages_table.put_item(Item={
-            'sessionId': session_id,
-            'timestamp': now_iso,
-            'messageId': message_id,
-            'userId': user_id,
-            'content': message_content,
-            'type': 'user',
-            'ttl': ttl_30d
-        })
-
-        # Set up checkpointing configuration
-        config = {"configurable": {"thread_id": session_id}}
         
-        # Check if this is a new session or continuing existing session
+        # Manage session and save user message
+        print("💾 Managing session and saving user message...")
+        upsert_chat_session(session_id, user_id, user_email)
+        message_id = save_user_message(session_id, user_id, message_content)
+        print(f"✅ Session managed, message ID: {message_id}")
+        
+        # Execute workflow (without setup_environment since we already did it)
+        print("🔄 Executing workflow...")
         try:
-            # Try to get existing state
-            existing_state = GRAPH.get_state(config=config)
-            print(f"Found existing state for session {session_id}")
-            
-            # Convert state snapshot to dict if needed
-            if hasattr(existing_state, 'get'):
-                state_dict = existing_state
-            else:
-                # Convert state snapshot to dict
-                state_dict = dict(existing_state)
-            
-            # Update the state with new user message
-            state_dict["user_message"] = message_content
-            
-            # Continue the workflow from existing state
-            new_state = GRAPH.invoke(state_dict, config=config)
-            print(f"Continued workflow, new state: {new_state}")
-            
-        except Exception as e:
-            print(f"No existing state found for session {session_id}, starting new workflow: {str(e)}")
-            
-            # Create initial state for new session
-            initial_state = {
-                "user_message": message_content,
-                "status": "collecting_topic"
-            }
-            
-            # Run the workflow with new state
-            new_state = GRAPH.invoke(initial_state, config=config)
-            print(f"Started new workflow, new state: {new_state}")
-
-        # Extract bot response from the state
-        bot_response = new_state.get('bot_message') or ""
-
-        # Save bot message
-        bot_message_id = str(uuid.uuid4())
-        bot_timestamp = datetime.now(timezone.utc).isoformat()
-        if bot_response:
-            user_messages_table.put_item(Item={
-                'sessionId': session_id,
-                'timestamp': bot_timestamp,
-                'messageId': bot_message_id,
-                'userId': user_id,
-                'content': bot_response,
-                'type': 'bot',
-                'ttl': ttl_30d
-            })
-
-        return _response(200, {
-            'sessionId': session_id,
-            'messageId': message_id,
-            'response': {
-                'content': bot_response,
-                'messageId': bot_message_id,
-                'timestamp': bot_timestamp,
-                'status': new_state.get('status')
-            }
-        })
-
+            new_state = execute_workflow(session_id, message_content, message_type, skip_environment_setup=True)
+            print(f"✅ Workflow executed successfully")
+        except Exception as workflow_error:
+            print(f"❌ Workflow execution failed: {workflow_error}")
+            return _response(500, create_error_response(500, 'Workflow execution failed', str(workflow_error)))
+        
+        # Extract and build response
+        print("🔍 Extracting and building response...")
+        response_data = extract_response_data(new_state)
+        bot_metadata = save_bot_message(session_id, user_id, response_data['bot_response'])
+        final_response_data = build_response_data(response_data, bot_metadata)
+        
+        # Create API response
+        api_response = create_api_response(session_id, message_id, final_response_data)
+        
+        print(f"🔍 Response data keys: {list(api_response.keys())}")
+        print(f"🔍 About to return response...")
+        
+        return _response(200, api_response)
+        
     except Exception as e:
-        print(f"Error processing message: {str(e)}")
+        print(f"❌ Error processing message: {str(e)}")
         import traceback
         traceback.print_exc()
-        return _response(500, {'error': 'Internal server error', 'message': str(e)})
+        return _response(500, create_error_response(500, 'Internal server error', str(e)))
 
 
 def _response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
