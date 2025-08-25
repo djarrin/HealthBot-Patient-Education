@@ -12,7 +12,7 @@ export default function HealthBotChat() {
   const [isTyping, setIsTyping] = useState(false);
   const [currentStep, setCurrentStep] = useState('welcome');
   const [quizQuestion, setQuizQuestion] = useState(null);
-  const [quizAnswer, setQuizAnswer] = useState('');
+  const [quizAnswers, setQuizAnswers] = useState({}); // Track answers by message ID
   const [showQuiz, setShowQuiz] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
@@ -77,6 +77,27 @@ export default function HealthBotChat() {
         setSessionId(response.sessionId);
       }
 
+      // Check if session has ended and reset session ID for fresh start
+      if (response.response && response.response.status === 'ended') {
+        console.log('Session ended, resetting session ID for fresh start');
+        setSessionId(null);
+        
+        // Reset quiz state for new session
+        setQuizQuestion(null);
+        setQuizAnswers({});
+        setShowQuiz(false);
+        setPendingConfirmation(null);
+        
+        // Add a visual indicator that a new session is starting
+        setTimeout(() => {
+          addMessage({
+            type: 'bot',
+            content: "Starting a new session... What health topic would you like to learn about?",
+            timestamp: new Date()
+          });
+        }, 1000);
+      }
+
       // Add bot response based on response type
       if (response.response) {
         const { responseType, content, multipleChoice, confirmationPrompt } = response.response;
@@ -102,6 +123,7 @@ export default function HealthBotChat() {
           });
           setShowQuiz(true);
           setQuizQuestion(multipleChoice);
+          // Don't reset quizAnswers here - let each quiz have its own state
         } else {
           // Handle regular text response
           addMessage({
@@ -166,6 +188,14 @@ export default function HealthBotChat() {
   };
 
   const handleTopicSubmit = async (topic) => {
+    // Reset quiz state when starting a new topic (especially for fresh sessions)
+    if (!sessionId) {
+      setQuizQuestion(null);
+      setQuizAnswers({});
+      setShowQuiz(false);
+      setPendingConfirmation(null);
+    }
+    
     addMessage({
       type: 'user',
       content: `${topic}`,
@@ -209,17 +239,25 @@ export default function HealthBotChat() {
     }
   };
 
-  const handleQuizSubmit = async () => {
-    if (!quizAnswer) return;
+  const handleQuizAnswerChange = (messageId, value) => {
+    setQuizAnswers(prev => ({
+      ...prev,
+      [messageId]: value
+    }));
+  };
+
+  const handleQuizSubmit = async (messageId) => {
+    const answer = quizAnswers[messageId];
+    if (!answer) return;
 
     addMessage({
       type: 'user',
-      content: `My answer: ${quizAnswer}`,
+      content: `My answer: ${answer}`,
       timestamp: new Date()
     });
 
     try {
-      const response = await sendMessageToAPI(quizAnswer, 'answer');
+      const response = await sendMessageToAPI(answer, 'answer');
       
       setShowQuiz(false);
       setCurrentStep('quiz-complete');
@@ -237,7 +275,7 @@ export default function HealthBotChat() {
     setMessages([]);
     setCurrentStep('welcome');
     setQuizQuestion(null);
-    setQuizAnswer('');
+    setQuizAnswers({});
     setShowQuiz(false);
     setSessionId(null); // Reset session for new topic
 
@@ -393,18 +431,18 @@ export default function HealthBotChat() {
                           <label key={index} className="quiz-option">
                             <input
                               type="radio"
-                              name="quiz-answer"
+                              name={`quiz-answer-${message.id}`}
                               value={String.fromCharCode(65 + index)} // A, B, C, D
-                              checked={quizAnswer === String.fromCharCode(65 + index)}
-                              onChange={(e) => setQuizAnswer(e.target.value)}
+                              checked={quizAnswers[message.id] === String.fromCharCode(65 + index)}
+                              onChange={(e) => handleQuizAnswerChange(message.id, e.target.value)}
                             />
                             <span>{String.fromCharCode(65 + index)}. {choice}</span>
                           </label>
                         ))}
                       </div>
                       <button 
-                        onClick={handleQuizSubmit}
-                        disabled={!quizAnswer}
+                        onClick={() => handleQuizSubmit(message.id)}
+                        disabled={!quizAnswers[message.id]}
                         className="quiz-submit-button"
                       >
                         Submit Answer
@@ -454,6 +492,8 @@ export default function HealthBotChat() {
             placeholder={
               pendingConfirmation 
                 ? "Please use the buttons above to respond..."
+                : !sessionId
+                ? "What health topic would you like to learn about? (New session)"
                 : currentStep === 'welcome' 
                 ? "What health topic would you like to learn about?"
                 : currentStep === 'ready-for-quiz'
