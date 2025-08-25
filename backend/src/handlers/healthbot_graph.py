@@ -40,7 +40,6 @@ def build_graph(checkpointer=None):
     graph.add_edge("search", "tools")  # Search creates tool calls, so go directly to tools
     graph.add_edge("tools", "summarize")  # Tools always go to summarize after execution
     graph.add_edge("summarize", "present_summary")
-    graph.add_edge("evaluate", "handle_restart")
     
     # Add conditional edges for user interaction points
     graph.add_conditional_edges(
