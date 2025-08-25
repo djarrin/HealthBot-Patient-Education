@@ -143,6 +143,35 @@ def present_summary_router(state: HealthBotState) -> str:
     return END
 
 
+def present_question_router(state: HealthBotState) -> str:
+    """Router for present_question node - can end execution when presenting question for first time"""
+    status = state.get("status", "collecting_topic")
+    user_message = (state.get("user_message") or "").strip()
+    message_type = state.get("message_type", "topic")
+    
+    print(f"❓ Present question router called with status: {status}, user_message: '{user_message}', message_type: '{message_type}'")
+    
+    # If we have a user message, route based on message_type
+    if user_message:
+        if message_type == "answer":
+            if user_message.upper() in {"A", "B", "C", "D"}:
+                print("✅ User provided quiz answer, routing to evaluate")
+                return "evaluate"
+            else:
+                # Invalid answer format, wait for user response
+                print("⏸️  Invalid answer format, waiting for user response")
+                return END
+        else:
+            # Wrong message type, wait for user
+            print("⏸️  Wrong message type, waiting for user")
+            return END
+    
+    # If no user message, end execution
+    # This means we just presented the question for the first time
+    print("❓ Question presented for first time, ending execution")
+    return END
+
+
 def tool_router(state: HealthBotState) -> str:
     """Router specifically for handling tool execution flow"""
     messages = state.get("messages", [])

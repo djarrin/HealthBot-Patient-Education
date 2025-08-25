@@ -168,8 +168,8 @@ def node_present_question(state: HealthBotState) -> HealthBotState:
             "status": "present_question"
         }
     
-    # Original logic for first time presenting question
-    # Create AI message with the question
+    # First time presenting question - create AI message with the question
+    print("❓ First time presenting question")
     ai_message = AIMessage(
         content="Here's a quick comprehension check:\n\n" + question,
         name="healthbot",
@@ -177,7 +177,7 @@ def node_present_question(state: HealthBotState) -> HealthBotState:
     )
     messages.append(ai_message)
     
-    print("❓ Setting status to 'awaiting_answer' to wait for user response")
+    print("❓ Setting status to 'awaiting_answer' and ending execution")
     return {
         **state,
         "status": "awaiting_answer",
